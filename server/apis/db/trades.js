@@ -1,4 +1,4 @@
-const db = require('../../data/');
+const db = require('../../data/config');
 
 module.exports = {
     insert,
@@ -11,14 +11,6 @@ module.exports = {
 function insert(trade) {
     return db('trades')
         .insert(trade)
-        .returning('id')
-        .then(idArr => {
-            const id = idArr[0];
-            return db('trades')
-                .where({
-                    id
-                }).first();
-        });
 }
 
 //Get a single trade object
@@ -33,5 +25,5 @@ function getOne(filter = null) {
 //Get multiple trades in the database
 //Filterable by sending in an object literal that matches the trades schema
 function getMany(filter = {}) {
-    return db('trades').where(filter).orderBy('date', 'desc');
+    return db('trades').where(filter).orderBy('time', 'desc');
 }

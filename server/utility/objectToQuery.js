@@ -1,4 +1,4 @@
-export const objToQuery = (filter) => {
+module.exports = (filter) => {
 
     //If there's no query params return an empty string
     if(Object.keys(filter).length === 0) return '';

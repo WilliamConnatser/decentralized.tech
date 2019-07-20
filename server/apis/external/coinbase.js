@@ -1,5 +1,6 @@
 const axios = require('axios');
-const objectToQuery = require('../utility/objectToQuery');
+const objectToQuery = require('../../utility/objectToQuery');
+const tradesApi = require('../db/trades')
 
 function getTradingPairs() {
 
@@ -48,13 +49,16 @@ function getAllTrades(ticker = "BTC-USD", cbAfter) {
         })
     }
 
+    console.log("yolo")
+
     //Get Coinbase trades for a specific trading pair ID
     axios.get(`${process.env.COINBASE_URL}/products/${ticker}/trades${queryParam}`)
         .then(res => {
             //The header containers a cb-after property which can be used to get data
             //Which comes before the data included in this request via the before param
             if (res.headers['cb-after']) {
-                getAllTrades(ticker, res.headers['cb-after']);
+                //Delay calls .25 seconds to obey by rate limits
+                setTimeout(() => getAllTrades(ticker, res.headers['cb-after']), 250)
             } else {
                 return true;
             }
