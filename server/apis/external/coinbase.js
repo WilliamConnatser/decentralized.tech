@@ -1,5 +1,5 @@
 const axios = require('axios');
-const objToUtility = require('../utility/objectToQuery');
+const objectToQuery = require('../utility/objectToQuery');
 
 function getTradingPairs() {
 
@@ -39,7 +39,7 @@ function getTradingPairs() {
     */
 }
 
-function getAllTrades(ticker = "BTC-USD", cbAfter) {
+function getAllTrades(ticker = "BTC-USD", cbAfter, result={}) {
 
     let queryParam = '';
     if (cbAfter) {
@@ -54,7 +54,7 @@ function getAllTrades(ticker = "BTC-USD", cbAfter) {
             //The header containers a cb-after property which can be used to get data
             //Which comes before the data included in this request via the before param
             if(res.headers['cb-after']) {
-                getAllTrades(ticker, res.headers['cb-after']);
+                getAllTrades(ticker, res.headers['cb-after'], result);
             }
         })
         .catch(err => {
