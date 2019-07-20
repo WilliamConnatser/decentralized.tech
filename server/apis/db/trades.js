@@ -25,5 +25,5 @@ function getOne(filter = null) {
 //Get multiple trades in the database
 //Filterable by sending in an object literal that matches the trades schema
 function getMany(filter = {}) {
-    return db('trades').where(filter).orderBy('time', 'desc')
+    return db('trades').where(filter).orderBy('time', 'desc');
 }
