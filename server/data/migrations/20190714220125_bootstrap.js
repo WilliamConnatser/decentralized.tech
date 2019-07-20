@@ -1,11 +1,11 @@
 exports.up = function (knex) {
     return knex.schema.createTable('trades', table => {
         table.increments()
-        table.datetime('date')
+        table.datetime('time')
         table.integer('trade_id')
         table.float('price')
         table.float('size')
-        table.string('action')
+        table.string('side')
         table.string('exchange')
     })
 };

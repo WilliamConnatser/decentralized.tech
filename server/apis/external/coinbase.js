@@ -39,7 +39,7 @@ function getTradingPairs() {
     */
 }
 
-function getAllTrades(ticker = "BTC-USD", cbAfter, result={}) {
+function getAllTrades(ticker = "BTC-USD", cbAfter) {
 
     let queryParam = '';
     if (cbAfter) {
@@ -47,15 +47,28 @@ function getAllTrades(ticker = "BTC-USD", cbAfter, result={}) {
             after: cbAfter
         })
     }
-    
+
     //Get Coinbase trades for a specific trading pair ID
     axios.get(`${process.env.COINBASE_URL}/products/${ticker}/trades${queryParam}`)
         .then(res => {
             //The header containers a cb-after property which can be used to get data
             //Which comes before the data included in this request via the before param
-            if(res.headers['cb-after']) {
-                getAllTrades(ticker, res.headers['cb-after'], result);
+            if (res.headers['cb-after']) {
+                getAllTrades(ticker, res.headers['cb-after']);
+            } else {
+                return true;
             }
+
+            //Add exchange data to each object in array of objects
+            const dataWithExchange = res.data.map(trade => {
+                return {
+                    ...trade,
+                    exchange: 'coinbase'
+                }
+            })
+
+            //Insert it into the database
+            tradesApi.insert(dataWithExchange);
         })
         .catch(err => {
             console.log(err)
