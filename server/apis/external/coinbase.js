@@ -49,7 +49,9 @@ function getAllTrades(ticker = "BTC-USD", cbAfter) {
         })
     }
 
-    console.log("yolo")
+    //Coinbase Syncing
+    if(Number(cbAfter) % 29 === 0)
+        console.log(`INIT SYNC - Coinbase - ${cbAfter}`)
 
     //Get Coinbase trades for a specific trading pair ID
     axios.get(`${process.env.COINBASE_URL}/products/${ticker}/trades${queryParam}`)
