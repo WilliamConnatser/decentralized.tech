@@ -2,6 +2,7 @@ require('dotenv').config()
 const server = require('./server');
 const coinbase = require('./apis/external/coinbase');
 const bitstamp = require('./apis/external/bitstamp');
+const bithumb = require('./apis/external/bithumb');
 const trades = require('./apis/db/trades');
 
 // coinbase.getAllTrades({
@@ -52,35 +53,22 @@ const trades = require('./apis/db/trades');
 //     url_symbol: 'btcusd',
 //     description: 'Bitcoin / U.S. dollar'
 // })
-bitstamp.syncAllTrades([{
-        base_decimals: 8,
-        minimum_order: '5.0 USD',
-        name: 'XRP/USD',
-        counter_decimals: 5,
-        trading: 'Enabled',
-        url_symbol: 'xrpusd',
-        description: 'XRP / U.S. dollar'
-    },
-    {
-        base_decimals: 8,
-        minimum_order: '0.001 BTC',
-        name: 'ETH/BTC',
-        counter_decimals: 8,
-        trading: 'Enabled',
-        url_symbol: 'ethbtc',
-        description: 'Ether / Bitcoin'
-    },
-    {
-        base_decimals: 8,
-        minimum_order: '5.0 EUR',
-        name: 'ETH/EUR',
-        counter_decimals: 2,
-        trading: 'Enabled',
-        url_symbol: 'etheur',
-        description: 'Ether / Euro'
-    }
-])
+// bitstamp.syncAllTrades([{
+//         base_decimals: 8,
+//         minimum_order: '5.0 USD',
+//         name: 'XRP/USD',
+//         counter_decimals: 5,
+//         trading: 'Enabled',
+//         url_symbol: 'xrpusd',
+//         description: 'XRP / U.S. dollar'
+//     }
+// ])
 
+console.log(bithumb.getTradingPairs())
+bithumb.getAllTrades({
+        id: 'BTC',
+        name: 'BTC/KRW'
+    })
 // trades.getMany()
 // .then(response => {
 //     console.log(response)
