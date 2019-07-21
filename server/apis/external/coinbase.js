@@ -6,10 +6,10 @@ const tradesApi = require('../db/trades');
 function getTradingPairs() {
 
     //Get Coinbase trading pairs
-    //The ID can be used to get each trade
-    return axios.get(`${process.env.COINBASE_URL_REST}/products`)
+    //The id property can be used in API requests
+    return axios.get(`${process.env.COINBASE_REST}/products`)
         .then(res => {
-            //Array of trading pairs
+            //Return response as-is
             return res.data;
         })
         .catch(err => {
@@ -41,21 +41,21 @@ function getTradingPairs() {
     */
 }
 
-function getAllTrades(tradingPair = "BTC-USD", cbAfter) {
-
+function getAllTrades(tradingPair, cbAfter) {
+    //Construct query parameters
     let queryParam = '';
     if (cbAfter) {
         queryParam = objectToQuery({
             after: cbAfter
-        })
+        });
     }
 
     //Coinbase Syncing
     if (Number(cbAfter) % process.env.UPDATE_FREQ === 0)
-        console.log(`INIT SYNC - Coinbase - ${cbAfter}`)
+        console.log(`INIT SYNC - Coinbase - ${tradingPair.display_name} ${cbAfter}`)
 
     //Get Coinbase trades for a specific trading pair ID
-    axios.get(`${process.env.COINBASE_URL_REST}/products/${tradingPair}/trades${queryParam}`)
+    axios.get(`${process.env.COINBASE_REST}/products/${tradingPair.id}/trades${queryParam}`)
         .then(res => {
             //The header containers a cb-after property which can be used to get data
             //Which comes before the data included in this request via the before param
@@ -63,22 +63,20 @@ function getAllTrades(tradingPair = "BTC-USD", cbAfter) {
                 //Delay calls .25 seconds to obey by rate limits
                 setTimeout(() => getAllTrades(tradingPair, res.headers['cb-after']), 250)
             }
-            //Otherwise, start up the web socket where updates will be received
-            else {
-                syncAllTrades()
-            }
-
-            //Add exchange data to each object in array of objects
-            const dataWithExchange = res.data.map(trade => {
+            //Add exchange and trading pair data to each object in array of objects
+            const hydratedData = res.data.map(trade => {
                 return {
-                    ...trade,
+                    time: trade.time,
+                    trade_id: trade.trade_id,
+                    price: trade.price,
+                    amount: trade.size,
+                    buy: trade.side === 'buy' ? true : false,
                     exchange: 'coinbase',
-                    trading_pair: tradingPair
+                    trading_pair: tradingPair.display_name
                 }
             })
-
             //Insert it into the database
-            tradesApi.insert(dataWithExchange);
+            tradesApi.insert(hydratedData);
         })
         .catch(err => {
             console.log(err)
@@ -98,42 +96,49 @@ function getAllTrades(tradingPair = "BTC-USD", cbAfter) {
 }
 
 function syncAllTrades(tradingPairs) {
-    const ws = new WebSocket(process.env.COINBASE_URL_WS)
-    console.log(`Coinbase WS Connected at ${process.env.COINBASE_URL_WS}`)
+    //Setup WS
+    const ws = new WebSocket(process.env.COINBASE_WS)
 
+    //Open WS connection
     ws.on('open', () => {
+        console.log(`Coinbase WS Connected at ${process.env.COINBASE_WS}`)
+        //Send subscription message
+        const tradingPairIds = tradingPairs.map(tradingPair => tradingPair.id)
         const subscriptionConfig = JSON.stringify({
             type: "subscribe",
-            product_ids: tradingPairs,
+            product_ids: tradingPairIds,
             channels: [{
                 name: "full",
-                product_ids: tradingPairs
+                product_ids: tradingPairIds
             }]
         })
         ws.send(subscriptionConfig);
     });
 
+    //Handle messages received
     ws.on('message', (data) => {
         data = JSON.parse(data);
+        //If message includes a successful trade
         if (data.type === 'match') {
             //Construct trades row
             const trade = {
                 time: data.time,
                 trade_id: data.trade_id,
                 price: data.price,
-                size: data.size,
-                side: data.side,
+                amount: data.size,
+                buy: data.side === 'buy' ? true : false,
                 exchange: 'coinbase',
-                trading_pair: data.product_id
+                trading_pair: tradingPairs.find(tradingPair=>tradingPair.id === data.product_id).display_name
             }
             //Insert it into the database
             tradesApi.insert(trade);
             //Update the console with the WS status
             if (trade.trade_id % process.env.UPDATE_FREQ === 0)
-                console.log(`WS ALIVE - Coinbase - ${trade.trade_id}`)
+                console.log(`WS ALIVE - Coinbase - ${trade.time}`)
         }
     });
 
+    //Handle errors
     ws.on('error', (error) => {
         console.log(`WebSocket error: ${error}`)
     })
