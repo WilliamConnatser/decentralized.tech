@@ -46,7 +46,6 @@ function getAllTrades(tradingPair) {
                     trade_id: trade.tid,
                     price: trade.price,
                     amount: trade.amount,
-                    buy: !Number(trade.type),
                     exchange: 'bitstamp',
                     trading_pair: tradingPair.name
                 }
@@ -105,7 +104,6 @@ function syncAllTrades(tradingPairs) {
                 trade_id: tradeData.id,
                 price: tradeData.price,
                 amount: tradeData.amount,
-                buy: !Number(tradeData.type),
                 exchange: 'bitstamp',
                 trading_pair: tradingPairs.find(tradingPair => tradingPair.url_symbol === url_symbol).name
             }

@@ -5,7 +5,6 @@ exports.up = function (knex) {
         table.integer('trade_id')
         table.float('price')
         table.float('amount')
-        table.boolean('buy')
         table.string('exchange')
         table.string('trading_pair')
     })
