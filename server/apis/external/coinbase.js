@@ -70,7 +70,6 @@ function getAllTrades(tradingPair, cbAfter) {
                     trade_id: trade.trade_id,
                     price: trade.price,
                     amount: trade.size,
-                    buy: trade.side === 'buy' ? true : false,
                     exchange: 'coinbase',
                     trading_pair: tradingPair.display_name
                 }
@@ -126,7 +125,6 @@ function syncAllTrades(tradingPairs) {
                 trade_id: data.trade_id,
                 price: data.price,
                 amount: data.size,
-                buy: data.side === 'buy' ? true : false,
                 exchange: 'coinbase',
                 trading_pair: tradingPairs.find(tradingPair=>tradingPair.id === data.product_id).display_name
             }

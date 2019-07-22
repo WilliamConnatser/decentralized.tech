@@ -120,7 +120,6 @@ function getAllTrades(tradingPair, cont_no) {
         queryParams.count_no = cont_no;
     axios.get(`${process.env.BITHUMB_REST}/transaction_history/${tradingPair.id}${objectToQuery(queryParams)}`)
         .then(({data}) => {
-            console.log(data.data[0])
             //Add exchange and trading pair data to each object in array of objects
             const hydratedData = data.data.map(trade => {
                 return {
@@ -128,7 +127,6 @@ function getAllTrades(tradingPair, cont_no) {
                     trade_id: trade.cont_no,
                     price: trade.price,
                     amount: trade.units_traded,
-                    buy: trade.type === 'ask' ? true : false,
                     exchange: 'bithumb',
                     trading_pair: tradingPair.name
                 }
