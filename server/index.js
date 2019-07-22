@@ -3,6 +3,7 @@ const server = require('./server');
 const coinbase = require('./apis/external/coinbase');
 const bitstamp = require('./apis/external/bitstamp');
 const bithumb = require('./apis/external/bithumb');
+const kraken = require('./apis/external/kraken');
 const trades = require('./apis/db/trades');
 
 // coinbase.getAllTrades({
@@ -65,14 +66,18 @@ const trades = require('./apis/db/trades');
 // ])
 
 // console.log(bithumb.getTradingPairs())
-bithumb.getAllTrades({
-        id: 'BTC',
-        name: 'BTC/KRW'
-    })
+// bithumb.getAllTrades({
+//         id: 'BTC',
+//         name: 'BTC/KRW'
+//     })
 // trades.getMany()
 // .then(response => {
 //     console.log(response)
 // })
+
+kraken.getTradingPairs().then(
+    res => console.log(res)
+)
 
 
 const port = process.env.PORT || 5000;
