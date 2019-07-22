@@ -64,7 +64,7 @@ const trades = require('./apis/db/trades');
 //     }
 // ])
 
-console.log(bithumb.getTradingPairs())
+// console.log(bithumb.getTradingPairs())
 bithumb.getAllTrades({
         id: 'BTC',
         name: 'BTC/KRW'
