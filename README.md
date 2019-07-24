@@ -35,8 +35,7 @@
 - Therefore, currently the focus is on writing modules which can aggregate raw trade data
 
 # Todo
-- Write Gemini API/WS Module **IN PROGRESS**
-- Write bitFlyer API/WS Module
+- Write bitFlyer API/WS Module **IN PROGRESS**
 - Write IDEX API/WS Module
 - Write Deribit API/WS Module
 - Write Ethfinex API/WS Module
