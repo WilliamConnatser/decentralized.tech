@@ -110,7 +110,7 @@ function getTradingPairs() {
 function getAllTrades(tradingPair, cont_no) {
     //Notify console API is alive
     if (cont_no % process.env.UPDATE_FREQ === 0)
-    console.log(`WS ALIVE - Bithumb - ${tradingPair.name}`)
+    console.log(`API ALIVE - Bithumb - ${tradingPair.name}`)
     //Get Bithumb trades for a specific trading pair
     //Use the last cont_no in the response to get older transactions
     const queryParams = {
@@ -158,7 +158,6 @@ function getAllTrades(tradingPair, cont_no) {
         //     },
         //     ...
         // ]
-    
 }
 
 module.exports = {
