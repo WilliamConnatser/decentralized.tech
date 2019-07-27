@@ -4,7 +4,7 @@ const tradesApi = require('../db/trades');
 
 function getTradingPairs() {
 
-    //Get Bitflyer trading pairs
+    //Get BitFlyer trading pairs
     //The product_code property can be used to get trading-pair-specific trades
     return axios.get(`${process.env.BITFLYER_REST}/getmarkets`)
         .then(res => {
@@ -31,27 +31,29 @@ function getTradingPairs() {
     */
 }
 
-function getAllTrades(tradingPair, cont_no) {
+function getAllTrades(tradingPair, before) {
     //Notify console API is alive
-    if (cont_no % process.env.UPDATE_FREQ === 0)
-    console.log(`API ALIVE - Bithumb - ${tradingPair.name}`)
-    //Get Bithumb trades for a specific trading pair
-    //Use the last cont_no in the response to get older transactions
+    if (before % process.env.UPDATE_FREQ === 0)
+    console.log(`API ALIVE - BitFlyer - ${tradingPair.name}`)
+    //Get BitFlyer trades for a specific trading pair
+    //Use the last before in the response to get older transactions
     const queryParams = {
-        count: 100
+        count: 100,
+        product_code: tradingPair.id
     }
-    if (cont_no)
-        queryParams.count_no = cont_no;
-    axios.get(`${process.env.BITHUMB_REST}/transaction_history/${tradingPair.id}${objectToQuery(queryParams)}`)
+    if (before)
+        queryParams.before = before;
+    axios.get(`${process.env.BITFLYER_REST}/getexecutions/${objectToQuery(queryParams)}`)
         .then(({data}) => {
+            console.log(data)
             //Add exchange and trading pair data to each object in array of objects
-            const hydratedData = data.data.map(trade => {
+            const hydratedData = data.map(trade => {
                 return {
-                    time: new Date(trade.transaction_date).toISOString(),
-                    trade_id: trade.cont_no,
+                    time: new Date(trade.exec_date).toISOString(),
+                    trade_id: trade.id,
                     price: trade.price,
-                    amount: trade.units_traded,
-                    exchange: 'bithumb',
+                    amount: trade.size,
+                    exchange: 'bitflyer',
                     trading_pair: tradingPair.name
                 }
             })
@@ -60,11 +62,9 @@ function getAllTrades(tradingPair, cont_no) {
             //If the response consisted of 100 trades
             //Then recursively get the next 100 trades
             if(hydratedData.length === 100) {                
-                const lastContNo = hydratedData[hydratedData.length-1].cont_no;
-                //Rate limit requests by .25 seconds
-                //Todo: There are 89 trading pairs and only 55 requests allowed per second
-                //Will need to figure out a way to rate limit requests across all trading pairs
-                setTimeout(() => getAllTrades(tradingPair,lastContNo),250)
+                const before = hydratedData[hydratedData.length-1].trade_id;
+                //Todo: No mention of rate limits for this API ???
+                setTimeout(() => getAllTrades(tradingPair,before),250)
             }
         })
         .catch(err => {
@@ -72,19 +72,94 @@ function getAllTrades(tradingPair, cont_no) {
         })    
         // Example response:
         // [
-        //     {
-        //         cont_no: '37998960',
-        //         transaction_date: '2019-07-22 08:07:03',
-        //         type: 'ask',
-        //         units_traded: '0.0267',
-        //         price: '12563000',
-        //         total: '335432'
-        //     },
-        //     ...
+        //     { 
+        //         id: 1174942589,
+        //         side: 'BUY',
+        //         price: 1101499,
+        //         size: 0.010255,
+        //         exec_date: '2019-07-27T01:52:26.413',
+        //         buy_child_order_acceptance_id: 'JRF20190727-015226-331774',
+        //         sell_child_order_acceptance_id: 'JRF20190727-014757-061907'
+        //     }
         // ]
 }
 
+//TODO: Unclear how to subscribe to web socket
+//Example and documentation uses a different package than what I've used where
+//.subscribe() is a package-level function...
+
+// function syncAllTrades(tradingPairs) {
+//     //Setup WS
+//     const ws = new WebSocket(process.env.BITFLYER_WS)
+//     const tradingPairIds = tradingPairs.map(tradingPair => tradingPair.id)
+
+//     //Open WS connection
+//     ws.on('open', () => {
+//         console.log(`BitFlyer WS Connected at ${process.env.BITFLYER_WS}`)
+//         //Send subscription message for each trading pair
+//         tradingPairIds.forEach(tradingPair => {
+//             const subscriptionConfig = JSON.stringify({
+//                 channel: 'bts:subscribe',
+//                 data: {
+//                     channel: `live_trades_${tradingPair}`
+//                 }
+//             });
+//             ws.send(subscriptionConfig);
+//         })
+//     });
+
+//     //Handle messages received
+//     ws.on('message', (data) => {
+//         data = JSON.parse(data);
+//         //If message includes a successful trade
+//         if (data.event === 'trade') {
+//             //Grab the url_symbol from the channel property
+//             const url_symbol = data.channel.split('_')[data.channel.split('_').length - 1]
+//             //Construct trade row
+//             const tradeData = data.data;
+//             const trade = {
+//                 time: new Date(tradeData.timestamp * 1000).toISOString(),
+//                 trade_id: tradeData.id,
+//                 price: tradeData.price,
+//                 amount: tradeData.amount,
+//                 exchange: 'bitstamp',
+//                 trading_pair: tradingPairs.find(tradingPair => tradingPair.url_symbol === url_symbol).name
+//             }
+//             //Insert trade into the database
+//             tradesApi.insert(trade);
+//             //Update the console with the WS status
+//             if (trade.trade_id % process.env.UPDATE_FREQ === 0)
+//                 console.log(`WS ALIVE - Bitstamp - ${url_symbol} - ${new Date(tradeData.timestamp * 1000).toISOString()}`)
+//         }
+//         //If the WS server is going down for maintenance
+//         else if (data.event == 'bts-request_reconnect') {
+//             //This message means the WS server we are connected to is going down for maintenance
+//             //By reconnecting it will automatically connect us to a new server
+//             syncAllTrades(tradingPairs)
+//         }
+//     });
+//     // Example message:
+//     // {
+//     //     type: 'match',
+//     //     trade_id: 1797465,
+//     //     maker_order_id: '6865cc86-7cd3-4ded-a6d2-e554a36f5a93',
+//     //     taker_order_id: '1be42c56-cac3-4a1b-a1a1-4248cb2b8d9b',
+//     //     side: 'buy',
+//     //     size: '1.00000000',
+//     //     price: '0.24200000',
+//     //     product_id: 'BAT-USDC',
+//     //     sequence: 503529021,
+//     //     time: '2019-07-21T19:14:57.457000Z'
+//     // }
+
+//     //Handle errors
+//     ws.on('error', (error) => {
+//         console.log(`WebSocket error: ${error}`)
+//     })
+// }
+
 module.exports = {
     getTradingPairs,
-    getAllTrades
+    getAllTrades,
+    syncAllTrades
 }

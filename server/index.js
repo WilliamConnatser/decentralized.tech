@@ -86,8 +86,9 @@ const trades = require('./apis/db/trades');
 // )
 // gemini.getAllTrades('btcusd')
 
-bitflyer.getTradingPairs()
-.then(res=>console.log(res))
+// bitflyer.getTradingPairs()
+// .then(res=>console.log(res))
+bitflyer.getAllTrades({ id: 'BTC_JPY', name: 'btcjpy' })
 
 const port = process.env.PORT || 5000;
 
