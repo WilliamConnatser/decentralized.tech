@@ -35,13 +35,13 @@
 - Therefore, currently the focus is on writing modules which can aggregate raw trade data
 
 # Todo
-- Write bitFlyer API/WS Module **IN PROGRESS**
 - Write IDEX API/WS Module
 - Write Deribit API/WS Module
 - Write Ethfinex API/WS Module
 - Write Kraken API/WS Module - **ON HOLD** Trade-level data is not accessible via their API?
 - Write Binance API/WS Module - **ON HOLD** Americans can not register for an account, and therefore can not receive an API key
 - Write Gateio API/WS Module - **ON HOLD** Looks like a futures exchange? Not sure how to handle futures yet...
+- Write bitFlyer API/WS Module **ON HOLD** REST API implemented- Todo: WS
 - Write Engine Module To Automate And Orchestrate Keeping Data In Sync
 - Write Engine Module To Calculate Candle Data From Raw Trades
     - Runs every X Minutes ??
