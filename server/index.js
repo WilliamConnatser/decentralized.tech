@@ -4,7 +4,8 @@ const coinbase = require('./apis/external/coinbase');
 const bitstamp = require('./apis/external/bitstamp');
 const bithumb = require('./apis/external/bithumb');
 const kraken = require('./apis/external/kraken');
-const gemini = require('./apis/external/gemini')
+const gemini = require('./apis/external/gemini');
+const bitflyer = require('./apis/external/bitflyer');
 const trades = require('./apis/db/trades');
 
 // coinbase.getAllTrades({
@@ -83,8 +84,10 @@ const trades = require('./apis/db/trades');
 // gemini.getTradingPairs().then(
 //     res => console.log(res)
 // )
-gemini.getAllTrades('btcusd')
+// gemini.getAllTrades('btcusd')
 
+bitflyer.getTradingPairs()
+.then(res=>console.log(res))
 
 const port = process.env.PORT || 5000;
 
