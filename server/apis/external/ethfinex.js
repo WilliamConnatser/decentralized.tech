@@ -66,7 +66,9 @@ function getAllTrades(tradingPair, end) {
     //Get EthFinex trades for a specific trading pair
     //TODO: Only 30 requests are allowed per minute
     axios.get(`${process.env.ETHFINEX_REST}/trades/${tradingPair.id}/hist${queryParams}`)
-        .then(({data}) => {
+        .then(({
+            data
+        }) => {
             //Add exchange and trading pair data to each object in array of objects
             const hydratedData = data.map(trade => {
                 return {
@@ -98,60 +100,82 @@ function getAllTrades(tradingPair, end) {
     */
 }
 
-// Todo: Implement Ethfinex Websockets
-// I have not edited any of the code copied from another modules below...
+function syncAllTrades(tradingPairs) {
+    //Setup WS
+    const ws = new WebSocket(process.env.ETHFINEX_WS)
 
+    //Open WS connection
+    ws.on('open', () => {
+        console.log(`EthFinex WS Connected at ${process.env.ETHFINEX_WS}`)
+        //Send subscription messages for each trading pair
+        tradingPairs.forEach((tradingPair,i) => {
+            setTimeout(() => {
+                const subscriptionConfig = JSON.stringify({
+                    event: 'unsubscribe',
+                    channel: 'trades',
+                    pair: tradingPair.id
+                })
+                ws.send(subscriptionConfig);
+            },1000*i);            
+        });
+    });
 
-// function syncAllTrades(tradingPairs) {
-//     //Setup WS
-//     const ws = new WebSocket(process.env.COINBASE_WS)
+    //Handle messages received
+    ws.on('message', (data) => {
+        data = JSON.parse(data);
+        const channelLookup = {}
 
-//     //Open WS connection
-//     ws.on('open', () => {
-//         console.log(`Coinbase WS Connected at ${process.env.COINBASE_WS}`)
-//         //Send subscription message
-//         const tradingPairIds = tradingPairs.map(tradingPair => tradingPair.id)
-//         const subscriptionConfig = JSON.stringify({
-//             type: "subscribe",
-//             product_ids: tradingPairIds,
-//             channels: [{
-//                 name: "full",
-//                 product_ids: tradingPairIds
-//             }]
-//         })
-//         ws.send(subscriptionConfig);
-//     });
+        //Subscription responses are sent as objects
+        //Trades are sent as arrays
+        if (!Array.isArray(data)) {
+            if(data.event === 'subscribed') {
+                channelLookup[data.chanId] = data.pair.toLowerCase();
+                console.log('Subscribed to', channelLookup[data.chanId])
+            }
+        } else {
+            let tradingPair = channelLookup[data[0]]
+            //When first subscribing an array of recent trades is sent
+            if (Array.isArray(data[1])) {
+                data[1].forEach(trade => {
+                    const tradeData = {
+                        time: new Date(trade[1]).toISOString(),
+                        trade_id: trade[0],
+                        price: trade[2],
+                        amount: trade[3],
+                        exchange: 'ethfinex',
+                        trading_pair: tradingPair
+                    }
+                    console.log("initial sync", tradeData)
+                    tradesApi.insert(tradeData);
+                });
+            }
+            //Otherwise data[1] will === "te" or "tu"
+            //For each trade both a "te" and "tu" message will be sent
+            //"tu" trades supposedly contain real trade IDs
+            else if(data[1] === "tu") {
+                const trade = data[2]
+                const tradeData = {
+                    time: new Date(trade[1]).toISOString(),
+                    trade_id: trade[0],
+                    price: trade[2],
+                    amount: trade[3],
+                    exchange: 'ethfinex',
+                    trading_pair: tradingPair
+                }
+                console.log("update", tradeData)
+                tradesApi.insert();
+            }
+        }
+    });
 
-//     //Handle messages received
-//     ws.on('message', (data) => {
-//         data = JSON.parse(data);
-//         //If message includes a successful trade
-//         if (data.type === 'match') {
-//             //Construct trades row
-//             const trade = {
-//                 time: data.time,
-//                 trade_id: data.trade_id,
-//                 price: data.price,
-//                 amount: data.size,
-//                 exchange: 'coinbase',
-//                 trading_pair: tradingPairs.find(tradingPair => tradingPair.id === data.product_id).display_name
-//             }
-//             //Insert it into the database
-//             tradesApi.insert(trade);
-//             //Update the console with the WS status
-//             if (trade.trade_id % process.env.UPDATE_FREQ === 0)
-//                 console.log(`WS ALIVE - Coinbase - ${trade.time}`)
-//         }
-//     });
+    //Handle errors
+    ws.on('error', (error) => {
+        console.log(`WebSocket Error: ${error}`)
+    })
+}
 
-//     //Handle errors
-//     ws.on('error', (error) => {
-//         console.log(`WebSocket error: ${error}`)
-//     })
-// }
-
-// module.exports = {
-//     getTradingPairs,
-//     getAllTrades,
-//     syncAllTrades
-// }
+module.exports = {
+    getTradingPairs,
+    getAllTrades,
+    syncAllTrades
+}

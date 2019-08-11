@@ -95,7 +95,8 @@ const trades = require('./apis/db/trades');
 
 ethfinex.getTradingPairs()
 .then(pairs=> {
-    ethfinex.getAllTrades(pairs[0])
+    // ethfinex.getAllTrades(pairs[0])
+    ethfinex.syncAllTrades(pairs)
 })
 
 const port = process.env.PORT || 5000;
