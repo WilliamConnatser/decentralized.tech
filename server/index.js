@@ -88,7 +88,9 @@ const trades = require('./apis/db/trades');
 
 // bitflyer.getTradingPairs()
 // .then(res=>console.log(res))
-bitflyer.getAllTrades({ id: 'BTC_JPY', name: 'btcjpy' })
+// bitflyer.getAllTrades({ id: 'BTC_JPY', name: 'btcjpy' })
+bitflyer.getTradingPairs()
+.then(res=>bitflyer.syncAllTrades(res))
 
 const port = process.env.PORT || 5000;
 
