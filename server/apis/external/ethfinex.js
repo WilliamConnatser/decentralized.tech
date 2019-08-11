@@ -103,6 +103,8 @@ function getAllTrades(tradingPair, end) {
 function syncAllTrades(tradingPairs) {
     //Setup WS
     const ws = new WebSocket(process.env.ETHFINEX_WS)
+    //Used to connect channel IDs to trading pairs
+    const channelLookup = {}
 
     //Open WS connection
     ws.on('open', () => {
@@ -111,7 +113,7 @@ function syncAllTrades(tradingPairs) {
         tradingPairs.forEach((tradingPair,i) => {
             setTimeout(() => {
                 const subscriptionConfig = JSON.stringify({
-                    event: 'unsubscribe',
+                    event: 'subscribe',
                     channel: 'trades',
                     pair: tradingPair.id
                 })
@@ -123,8 +125,6 @@ function syncAllTrades(tradingPairs) {
     //Handle messages received
     ws.on('message', (data) => {
         data = JSON.parse(data);
-        const channelLookup = {}
-
         //Subscription responses are sent as objects
         //Trades are sent as arrays
         if (!Array.isArray(data)) {
@@ -162,7 +162,7 @@ function syncAllTrades(tradingPairs) {
                     exchange: 'ethfinex',
                     trading_pair: tradingPair
                 }
-                console.log("update", tradeData)
+                console.log("new trade", tradeData)
                 tradesApi.insert();
             }
         }
