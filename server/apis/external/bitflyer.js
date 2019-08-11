@@ -103,7 +103,6 @@ function syncAllTrades(tradingPairs) {
         console.log(`BitFlyer WS Connected at ${process.env.BITFLYER_WS}`)
         //Send subscription message for each trading pair
         tradingPairs.forEach(tradingPair => {
-            console.log(tradingPair.id)
             const subscriptionConfig = JSON.stringify({
                 method: "subscribe",
                 params: {
@@ -135,7 +134,7 @@ function syncAllTrades(tradingPairs) {
             tradesApi.insert(trade);
             //Update the console with the WS status
             if (trade.trade_id % process.env.UPDATE_FREQ === 0)
-                console.log(`WS ALIVE - Bitflyer - ${tradingPairId} - ${tradeData.timestamp}`)
+                console.log(`WS ALIVE - Bitflyer - ${tradingPairId} - ${tradeData.exec_date}`)
         }
     });
     // Example message:
