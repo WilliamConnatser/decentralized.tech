@@ -1,11 +1,12 @@
 require('dotenv').config()
 const server = require('./server');
-const coinbase = require('./apis/external/coinbase');
-const bitstamp = require('./apis/external/bitstamp');
-const bithumb = require('./apis/external/bithumb');
-const kraken = require('./apis/external/kraken');
-const gemini = require('./apis/external/gemini');
 const bitflyer = require('./apis/external/bitflyer');
+const bithumb = require('./apis/external/bithumb');
+const bitstamp = require('./apis/external/bitstamp');
+const coinbase = require('./apis/external/coinbase');
+const ethfinex = require('./apis/external/ethfinex');
+const gemini = require('./apis/external/gemini');
+const kraken = require('./apis/external/kraken');
 const trades = require('./apis/db/trades');
 
 // coinbase.getAllTrades({
@@ -91,6 +92,11 @@ const trades = require('./apis/db/trades');
 // bitflyer.getAllTrades({ id: 'BTC_JPY', name: 'btcjpy' })
 // bitflyer.getTradingPairs()
 // .then(res=>bitflyer.syncAllTrades(res))
+
+ethfinex.getTradingPairs()
+.then(pairs=> {
+    ethfinex.getAllTrades(pairs[0])
+})
 
 const port = process.env.PORT || 5000;
 
