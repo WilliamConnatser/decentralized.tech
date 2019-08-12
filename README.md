@@ -35,7 +35,6 @@
 - Therefore, currently the focus is on writing modules which can aggregate raw trade data
 
 # Todo
-- Write Liquid API/WS Module
 - Write Poloniex API/WS Module
 - Write Belfrics API/WS Module
 - Write IDEX API/WS Module
@@ -51,6 +50,10 @@
 - Write Deribit API/WS Module
     - **ON HOLD**
     - Unsure how to handle options and futures 
+- Write Liquid API/WS Module
+    - **NEED WS IMPLEMENTED**
+    - REST API implemented, but WS implementation put on hold
+    - Looks like I will have to install the Pusher package. It seems complicated to use regular WS packages with Pusher :\
 - Write Engine Module To Automate And Orchestrate Keeping Data In Sync
 - Write Engine Module To Calculate Candle Data From Raw Trades
     - Runs every X Minutes ??
