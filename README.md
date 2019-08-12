@@ -36,6 +36,7 @@
 
 # Todo
 - Write Poloniex API/WS Module
+    - **IN PROGRESS**
 - Write Belfrics API/WS Module
 - Write IDEX API/WS Module
 - Write Kraken API/WS Module
