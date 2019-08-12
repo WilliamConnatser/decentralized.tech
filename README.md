@@ -35,7 +35,6 @@
 - Therefore, currently the focus is on writing modules which can aggregate raw trade data
 
 # Todo
-- Write Ethfinex API/WS Module
 - Write Liquid API/WS Module
 - Write Poloniex API/WS Module
 - Write Belfrics API/WS Module

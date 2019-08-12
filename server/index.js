@@ -7,6 +7,7 @@ const coinbase = require('./apis/external/coinbase');
 const ethfinex = require('./apis/external/ethfinex');
 const gemini = require('./apis/external/gemini');
 const kraken = require('./apis/external/kraken');
+const liquid = require('./apis/external/liquid');
 const trades = require('./apis/db/trades');
 
 // coinbase.getAllTrades({
@@ -93,10 +94,16 @@ const trades = require('./apis/db/trades');
 // bitflyer.getTradingPairs()
 // .then(res=>bitflyer.syncAllTrades(res))
 
-ethfinex.getTradingPairs()
-.then(pairs=> {
-    // ethfinex.getAllTrades(pairs[0])
-    ethfinex.syncAllTrades(pairs)
+// ethfinex.getTradingPairs()
+// .then(pairs=> {
+//     //ethfinex.getAllTrades(pairs[0])
+//     ethfinex.syncAllTrades(pairs)
+// })
+
+liquid.getTradingPairs().then(tradingPairs => {
+    //console.log(tradingPairs)
+    // liquid.getAllTrades(tradingPairs[0])
+    liquid.syncAllTrades(tradingPairs)
 })
 
 const port = process.env.PORT || 5000;
