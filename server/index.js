@@ -108,8 +108,10 @@ const trades = require('./apis/db/trades');
 // })
 
 poloniex.getTradingPairs()
-.then(traingPairs => {
-    poloniex.getAllTrades(traingPairs[0])
+.then(tradingPairs => {
+    console.log(tradingPairs)
+    // poloniex.getAllTrades(tradingPairs[0])
+    poloniex.syncAllTrades(tradingPairs)
 })
 
 const port = process.env.PORT || 5000;

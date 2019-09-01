@@ -11,7 +11,8 @@ function getTradingPairs() {
             //Parse trading pairs
             const tradingPairs = Object.keys(res.data).map(tradingPair => ({
                 id: tradingPair,
-                name: tradingPair.replace('_', '').toLowerCase()
+                name: tradingPair.replace('_', '').toLowerCase(),
+                wsId: res.data[tradingPair].id
             }))
             return tradingPairs;
         })
@@ -58,7 +59,7 @@ function getAllTrades(tradingPair, end=Date.now()) {
             //Add exchange and trading pair data to each object in array of objects
             const hydratedData = data.map(trade => {
                 return {
-                    time: new Date(trade.date).toISOString(),
+                    time: new Date(trade.date * 1000).toISOString(),
                     trade_id: trade.globalTradeID,
                     price: trade.rate,
                     amount: trade.total,
@@ -95,68 +96,66 @@ function getAllTrades(tradingPair, end=Date.now()) {
     // ]
 }
 
-//TODO: Implement Poloniex WS
-// The following was copied from another module.. need to edit
+function syncAllTrades(tradingPairs) {
+    //Setup WS
+    const ws = new WebSocket(process.env.POLONIEX_WS)
 
-// function syncAllTrades(tradingPairs) {
-//     //Setup WS
-//     const ws = new WebSocket(process.env.BITFLYER_WS)
+    //Open WS connection
+    ws.on('open', () => {
+        console.log(`Poloniex WS Connected at ${process.env.POLONIEX_WS}`)
+        //Send subscription message for each trading pair
+        tradingPairs.forEach(tradingPair => {
+            const subscriptionConfig = JSON.stringify({
+                command: 'subscribe',
+                channel: `${tradingPair.wsId}`
+            });
+            ws.send(subscriptionConfig);
+        })
+    });
 
-//     //Open WS connection
-//     ws.on('open', () => {
-//         console.log(`BitFlyer WS Connected at ${process.env.BITFLYER_WS}`)
-//         //Send subscription message for each trading pair
-//         tradingPairs.forEach(tradingPair => {
-//             const subscriptionConfig = JSON.stringify({
-//                 method: "subscribe",
-//                 params: {
-//                     channel: `lightning_executions_${tradingPair.id}`
-//                 }
-//             });
-//             ws.send(subscriptionConfig);
-//         })
-//     });
+    //Handle messages received
+    ws.on('message', (data) => {
+        data = JSON.parse(data);
+        //Grab the trading pair from the channel property
+        const tradingPairId = tradingPairs.find(tradingPair => tradingPair.wsId === data[0]);
+        //Each message contains an array of trades and order book actions (asks and bids)
+        //Trades are denoted by having a the letter t as the first item of the array
+        const tradeDataArray = data[2].filter(action => action[0] === 't');
+        // console.log(tradeDataArray)
+        for(tradeData of tradeDataArray) {            
+            //Construct trade row
+            const trade = {
+                time: new Date(tradeData[5] * 1000).toISOString(),
+                trade_id: parseInt(tradeData[1]),
+                price: Number(tradeData[3]),
+                amount: Number(tradeData[4]),
+                exchange: 'poloniex',
+                trading_pair: tradingPairId.name
+            }
+            //Insert trade into the database
+            console.log(trade)
+            // tradesApi.insert(trade);
+            //Update the console with the WS status
+            if (trade.trade_id % process.env.UPDATE_FREQ === 0)
+                console.log(`WS ALIVE - Poloniex - ${tradingPairId} - ${tradeData.exec_date}`)
+        }
+    });
+    // Example message:
+    // { 
+    //     id: 1202798746,
+    //     side: 'SELL',
+    //     price: 1192000,
+    //     size: 0.199,
+    //     exec_date: '2019-08-11T00:08:27.3619227Z',
+    //     buy_child_order_acceptance_id: 'JRF20190811-000827-016860',
+    //     sell_child_order_acceptance_id: 'JRF20190811-000827-411553'
+    // }
 
-//     //Handle messages received
-//     ws.on('message', (data) => {
-//         data = JSON.parse(data);        
-//         //Grab the trading pair from the channel property
-//         const tradingPairId = data.params.channel.replace("lightning_executions_","")
-//         //Each message contains an array of trades
-//         const tradeDataArray = data.params.message
-//         for(tradeData of tradeDataArray) {            
-//             //Construct trade row
-//             const trade = {
-//                 time: tradeData.exec_date,
-//                 trade_id: tradeData.id,
-//                 price: tradeData.price,
-//                 amount: tradeData.size,
-//                 exchange: 'bitflyer',
-//                 trading_pair: tradingPairs.find(tradingPair => tradingPair.id === tradingPairId).name
-//             }
-//             //Insert trade into the database
-//             tradesApi.insert(trade);
-//             //Update the console with the WS status
-//             if (trade.trade_id % process.env.UPDATE_FREQ === 0)
-//                 console.log(`WS ALIVE - Bitflyer - ${tradingPairId} - ${tradeData.exec_date}`)
-//         }
-//     });
-//     // Example message:
-//     // { 
-//     //     id: 1202798746,
-//     //     side: 'SELL',
-//     //     price: 1192000,
-//     //     size: 0.199,
-//     //     exec_date: '2019-08-11T00:08:27.3619227Z',
-//     //     buy_child_order_acceptance_id: 'JRF20190811-000827-016860',
-//     //     sell_child_order_acceptance_id: 'JRF20190811-000827-411553'
-//     // }
-
-//     //Handle errors
-//     ws.on('error', (error) => {
-//         console.log(`WebSocket error: ${error}`)
-//     })
-// }
+    //Handle errors
+    ws.on('error', (error) => {
+        console.log(`WebSocket error: ${error}`)
+    })
+}
 
 module.exports = {
     getTradingPairs,
