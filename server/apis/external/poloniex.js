@@ -133,23 +133,22 @@ function syncAllTrades(tradingPairs) {
                 trading_pair: tradingPairId.name
             }
             //Insert trade into the database
-            console.log(trade)
-            // tradesApi.insert(trade);
+            tradesApi.insert(trade);
             //Update the console with the WS status
             if (trade.trade_id % process.env.UPDATE_FREQ === 0)
-                console.log(`WS ALIVE - Poloniex - ${tradingPairId} - ${tradeData.exec_date}`)
+                console.log(`WS ALIVE - Poloniex - ${tradingPairId.name} - ${tradeData.exec_date}`)
         }
     });
     // Example message:
-    // { 
-    //     id: 1202798746,
-    //     side: 'SELL',
-    //     price: 1192000,
-    //     size: 0.199,
-    //     exec_date: '2019-08-11T00:08:27.3619227Z',
-    //     buy_child_order_acceptance_id: 'JRF20190811-000827-016860',
-    //     sell_child_order_acceptance_id: 'JRF20190811-000827-411553'
-    // }
+    // [
+    //     't',
+    //     '65439',
+    //     1,
+    //     '0.00060012',
+    //     '33.38831300',
+    //     1567312220
+    // ]
+
 
     //Handle errors
     ws.on('error', (error) => {

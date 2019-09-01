@@ -1,15 +1,16 @@
 require('dotenv').config()
-const server = require('./server');
-const bitflyer = require('./apis/external/bitflyer');
-const bithumb = require('./apis/external/bithumb');
-const bitstamp = require('./apis/external/bitstamp');
-const coinbase = require('./apis/external/coinbase');
-const ethfinex = require('./apis/external/ethfinex');
-const gemini = require('./apis/external/gemini');
-const kraken = require('./apis/external/kraken');
-const liquid = require('./apis/external/liquid');
-const poloniex = require('./apis/external/poloniex');
-const trades = require('./apis/db/trades');
+const server = require('./server')
+const bitflyer = require('./apis/external/bitflyer')
+const bithumb = require('./apis/external/bithumb')
+const bitstamp = require('./apis/external/bitstamp')
+const coinbase = require('./apis/external/coinbase')
+const ethfinex = require('./apis/external/ethfinex')
+const gemini = require('./apis/external/gemini')
+const kraken = require('./apis/external/kraken')
+const liquid = require('./apis/external/liquid')
+const poloniex = require('./apis/external/poloniex')
+const idex = require('./apis/external/idex')
+const trades = require('./apis/db/trades')
 
 // coinbase.getAllTrades({
 //     id: 'BAT-USDC',
@@ -107,11 +108,18 @@ const trades = require('./apis/db/trades');
 //     liquid.syncAllTrades(tradingPairs)
 // })
 
-poloniex.getTradingPairs()
+// poloniex.getTradingPairs()
+// .then(tradingPairs => {
+//     console.log(tradingPairs)
+//     // poloniex.getAllTrades(tradingPairs[0])
+//     // poloniex.syncAllTrades(tradingPairs)
+// })
+
+idex.getTradingPairs()
 .then(tradingPairs => {
-    console.log(tradingPairs)
-    // poloniex.getAllTrades(tradingPairs[0])
-    poloniex.syncAllTrades(tradingPairs)
+    // console.log(tradingPairs)
+    // idex.getAllTrades(tradingPairs[0])
+    idex.syncAllTrades(tradingPairs)
 })
 
 const port = process.env.PORT || 5000;

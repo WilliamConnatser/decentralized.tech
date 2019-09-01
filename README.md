@@ -35,12 +35,6 @@
 - Therefore, currently the focus is on writing modules which can aggregate raw trade data
 
 # Todo
-- Write Belfrics API/WS Module
-- Write IDEX API/WS Module
-- Write Poloniex API/WS Module
-    - **IN PROGRESS**
-    - REST API implemented
-    - Finish WebSocket implementation
 - Write Kraken API/WS Module
     - **ON HOLD**
     - It seems granular trade data is not accessible via their API?
