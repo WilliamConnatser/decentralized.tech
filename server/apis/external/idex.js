@@ -107,29 +107,34 @@ function getAllTrades(tradingPair, cursor=null) {
     */
 }
 
-function syncAllTrades(tradingPairs) {
-    //Setup WS
-    const ws = new WebSocket(process.env.IDEX_WS)
+//TODO: Not getting any response from the WS handshake
+// Not sure why, but this is a low volume exchange, so I will leave it for later
+// Another engineering challenge is that there seem to be 640 markets
+// But according to IDEX documentation, you can only subscribe to 100 per connection...
+// function syncAllTrades(tradingPairs) {
+//     //Setup WS
+//     const ws = new WebSocket(process.env.IDEX_WS)
 
-    //Open WS connection
-    ws.on('open', () => {
-        console.log(`IDEX WS Connected at ${process.env.IDEX_WS}`)
-        //Send handshake message when the connection is established
-        //  IDEX will send back a session id (sid) which must be included with every request thereafter
-        const handshake = JSON.stringify({
-            request: 'handshake',
-            payload: {
-                version: '1.0.0',
-                key: process.env.IDEX_KEY
-            }
-        })
-        ws.send(handshake);
-    });
+//     //Open WS connection
+//     ws.on('open', () => {
+//         console.log(`IDEX WS Connected at ${process.env.IDEX_WS}`)
+//         //Send handshake message when the connection is established
+//         //  IDEX will send back a session id (sid) which must be included with every request thereafter
+//         const handshake = JSON.stringify({
+//             request: 'handshake',
+//             payload: {
+//                 version: '1.0.0',
+//                 key: process.env.IDEX_KEY
+//             }
+//         })
+//         ws.send(handshake);
+//     });
 
-    //Handle messages received
-    ws.on('message', (data) => {
-        data = JSON.parse(data);
-        console.log(data)
+//     //Handle messages received
+//     ws.on('message', (data) => {
+//         data = JSON.parse(data);
+//         console.log('messageee', data)
+        // You can only subscribe to 100 markets at a time...
         //Subscribe to channels
         //Send subscription message
         // const tradingPairIds = tradingPairs.map(tradingPair => tradingPair.id)
@@ -161,16 +166,16 @@ function syncAllTrades(tradingPairs) {
         //     if (trade.trade_id % process.env.UPDATE_FREQ === 0)
         //         console.log(`WS ALIVE - Coinbase - ${trade.time}`)
         // }
-    });
+    // });
 
     //Handle errors
-    ws.on('error', (error) => {
-        console.log(`WebSocket error: ${error}`)
-    })
-}
+    // ws.on('error', (error) => {
+    //     console.log(`WebSocket error: ${error}`)
+    // })
+// }
 
 module.exports = {
     getTradingPairs,
     getAllTrades,
-    syncAllTrades
+    // syncAllTrades
 }

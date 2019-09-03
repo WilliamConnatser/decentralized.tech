@@ -1,4 +1,4 @@
-const axios = require('axios');
+const axios = require('../../utility/smartAxios')('coinbase');
 const WebSocket = require('ws');
 const objectToQuery = require('../../utility/objectToQuery');
 const tradesApi = require('../db/trades');
@@ -10,7 +10,10 @@ function getTradingPairs() {
     return axios.get(`${process.env.COINBASE_REST}/products`)
         .then(res => {
             //Return response as-is
-            return res.data;
+            return res.data.map(pair => ({
+                id: pair.id,
+                name: pair.id.replace('-','').toLowerCase()
+            }))
         })
         .catch(err => {
             console.log(err)
@@ -52,7 +55,7 @@ function getAllTrades(tradingPair, cbAfter) {
 
     //Coinbase Syncing
     if (Number(cbAfter) % process.env.UPDATE_FREQ === 0)
-        console.log(`INIT SYNC - Coinbase - ${tradingPair.display_name} ${cbAfter}`)
+        console.log(`INIT SYNC - Coinbase - ${tradingPair.name} ${cbAfter}`)
 
     //Get Coinbase trades for a specific trading pair ID
     axios.get(`${process.env.COINBASE_REST}/products/${tradingPair.id}/trades${queryParam}`)
@@ -66,16 +69,16 @@ function getAllTrades(tradingPair, cbAfter) {
             //Add exchange and trading pair data to each object in array of objects
             const hydratedData = res.data.map(trade => {
                 return {
-                    time: trade.time,
+                    time: new Date(trade.time).toISOString(),
                     trade_id: trade.trade_id,
-                    price: trade.price,
-                    amount: trade.size,
+                    price: Number(trade.price),
+                    amount: Number(trade.size),
                     exchange: 'coinbase',
-                    trading_pair: tradingPair.display_name
+                    trading_pair: tradingPair.name
                 }
             })
             //Insert it into the database
-            tradesApi.insert(hydratedData);
+            tradesApi.insert(hydratedData).catch(err => console.log(err.message));
         })
         .catch(err => {
             console.log(err)
@@ -126,7 +129,7 @@ function syncAllTrades(tradingPairs) {
                 price: data.price,
                 amount: data.size,
                 exchange: 'coinbase',
-                trading_pair: tradingPairs.find(tradingPair=>tradingPair.id === data.product_id).display_name
+                trading_pair: tradingPairs.find(tradingPair=>tradingPair.id === data.product_id).name
             }
             //Insert it into the database
             tradesApi.insert(trade);
