@@ -16,7 +16,7 @@ function getTradingPairs() {
             }))
         })
         .catch(err => {
-            console.log(err)
+            console.log(err.message, '<< COINBASE REST (TRADING PAIRS)')
         })
     /* Response:
         [
@@ -76,12 +76,12 @@ function getAllTrades(tradingPair, cbAfter=null) {
             //Insert parsed trades into the database
             tradesApi.insert(tradeData)
                 .catch(err => {
-                    if(!err.message.includes('unique')) console.log(err.message, '<< COINBASE REST')
+                    if(!err.message.includes('unique')) console.log(err.message, '<< COINBASE REST INSERTION')
                 })
             console.log(`[COINBASE] +${res.data.length} Trades FROM ${tradingPair.name} (cbAfter = ${cbAfter})`)
         })
         .catch(err => {
-            console.log(err)
+            console.log(err.message, '<< COINBASE REST (TRADES)')
         })
     /*
         [
@@ -135,7 +135,7 @@ function syncAllTrades(tradingPairs) {
             //Insert it into the database
             tradesApi.insert(trade)
                 .catch(err => {
-                    if(!err.message.includes('unique')) console.log(err.message, '<< COINBASE WS')
+                    if(!err.message.includes('unique')) console.log(err.message, '<< COINBASE WS INSERTION')
                 })
             //Update the console with the WS status
             if (trade.trade_id % process.env.UPDATE_FREQ === 0)
@@ -145,7 +145,7 @@ function syncAllTrades(tradingPairs) {
 
     //Handle errors
     ws.on('error', (error) => {
-        console.log(`WebSocket error: ${error}`)
+        console.log(err.message, '<< COINBASE WS')
     })
 }
 

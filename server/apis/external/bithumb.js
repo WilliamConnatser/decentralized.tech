@@ -18,7 +18,10 @@ function getTradingPairs() {
             //Needed because the last key `date` is not a trading pair
             tradingPairs.pop()
             return tradingPairs
-        });
+        })
+        .catch(err => {
+            console.log(err.message, '<< BITHUMB REST (TRADINGPAIRS)')
+        }) 
 }
 
 function getAllTrades(tradingPair) {
@@ -43,13 +46,13 @@ function getAllTrades(tradingPair) {
             //Insert all trades into the database
             tradesApi.insert(tradeData)
                 .catch(err => {
-                    if(!err.message.includes('unique')) console.log(err.message, '<< BITHUMB REST')
+                    if(!err.message.includes('unique')) console.log(err.message, '<< BITHUMB REST INSERTION')
                 })
 
             console.log(`[BITHUMB] +${data.data.length} Trades FROM ${tradingPair.name}`)
         })
         .catch(err => {
-            console.log(err, tradingPair.id)
+            console.log(err.message, '<< BITHUMB REST (TRADES)')
         })    
         // Example response:
         // [

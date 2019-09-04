@@ -1,21 +1,17 @@
-const axios = require('axios');
-const objectToQuery = require('../../utility/objectToQuery');
-const tradesApi = require('../db/trades');
+const SmartAxios = require('../../utility/SmartAxios')
+const gemini = new SmartAxios('gemini')
+const objectToQuery = require('../../utility/objectToQuery')
+const tradesApi = require('../db/trades')
 
+//Gets Gemini trading pairs
 function getTradingPairs() {
-
-    //Get Gemini trading pairs
-    return axios.get(`${process.env.GEMINI_REST}/symbols`)
+    return gemini.axios.get(`${process.env.GEMINI_REST}/symbols`)
         .then(res => {
-            //Returns a plain array of tickers as they should be included in requests
-            //Todo: All other APIs insert trading pairs in the format of:
-            //UPPERCASE tickers separated by a backslash
-            //IE. BTC/USD
-            //Need to either convert these trading pairs or other APIs trading pairs to normalize the data
+            //Returns a plain array of trading pairs
             return res.data;
         })
         .catch(err => {
-            console.log(err)
+            console.log(err.message, '<< GEMINI REST (TRADING PAIRS)')
         });
     /*
     [
@@ -38,24 +34,23 @@ function getTradingPairs() {
     */
 }
 
+//Get Gemini trades for a specific trading pair
+//Use the last timestamp in the response to get older transactions
+//Gemini only provides data 7 days back
 function getAllTrades(tradingPair, timestamp) {
-    //Notify console API is alive
-    if (timestamp && timestamp % process.env.UPDATE_FREQ === 0)
-        console.log(`API ALIVE - Gemini - ${tradingPair}`)
-    //Get Gemini trades for a specific trading pair
-    //Use the last timestamp in the response to get older transactions
-    //Gemini only provides data 7 days back
+    //Setup query parameters
     const queryParams = {
         limit_trades: 500
     }
-    if (timestamp)
+    if (timestamp) {
         queryParams.since = timestamp;
-    axios.get(`${process.env.GEMINI_REST}/trades/${tradingPair}${objectToQuery(queryParams)}`)
+    }
+    gemini.axios.get(`${process.env.GEMINI_REST}/trades/${tradingPair}${objectToQuery(queryParams)}`)
         .then(({
             data
         }) => {
             //Add exchange and trading pair data to each object in array of objects
-            const hydratedData = data.map(trade => {
+            const parsedTrades = data.map(trade => {
                 return {
                     time: new Date(trade.timestampms).toISOString(),
                     trade_id: trade.tid,
@@ -65,20 +60,26 @@ function getAllTrades(tradingPair, timestamp) {
                     trading_pair: tradingPair
                 }
             })
-            //Insert it into the database
-            tradesApi.insert(hydratedData);
+            //Insert parsed trades into the database
+            tradesApi.insertMany(parsedTrades)
+                .catch(err => {
+                    if(!err.message.includes('unique')) {
+                        console.log(err.message, '<< GEMINI REST INSERTION')
+                    }
+                })
             //If the response consisted of 500 trades
-            //Then recursively get the next 500 trades
-            if (hydratedData.length === 500) {
-                const timestamp = data[data.length - 1].timestampms;
-                //Rate limit requests by .25 seconds
-                //Todo: There are 15 trading pairs and only 1 request "recommended" per second
-                //Will need to figure out a way to rate limit requests across all trading pairs
-                setTimeout(() => getAllTrades(tradingPair, timestamp), 1000)
+            if (parsedTrades.length === 500) {
+                const timestamp = data[data.length - 1].timestampms
+                //Then recursively get the next 500 trades
+                //Requests are rate limited by 1 second in SmartAxios
+                getAllTrades(tradingPair, timestamp)
             }
+            console.log(`[BITSTAMP] +${parsedTrades.length} Trades FROM ${tradingPair}`)
         })
         .catch(err => {
-            console.log(err)
+            if(!err.message.includes('before the earliest available historical date')) {
+                console.log(err.message, '<< GEMINI REST (TRADES)')
+            }
         })
     // Example response:
     // [

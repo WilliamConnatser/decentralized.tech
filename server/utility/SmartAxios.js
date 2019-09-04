@@ -10,6 +10,9 @@ class SmartAxios {
         this.headers = {}
         this.rateLimit = 0
 
+        // Rate limit defaults to 1 second
+        // Only the exchanges that specify in their API documentation
+        // That they have faster limits are defined in switch statement
         switch(this.exchange) {
             case 'coinbase':
                 this.rateLimit = .25
@@ -17,11 +20,8 @@ class SmartAxios {
             case 'bithumb':
                 this.rateLimit = .015
                 break
-            case 'kraken':
-                this.rateLimit = 1
-                break
             default:
-                this.rateLimit = 0
+                this.rateLimit = 1
         }
 
         // Add a request interceptor which pushes request to the queue
@@ -52,8 +52,8 @@ class SmartAxios {
         });
     }
 
-    //On initialization it gets cooldown timestamp from the hard drive
-    //Each time cooldown is set, it writes the current cooldown timestamp to the hard drive
+    // On initialization it gets cooldown timestamp from the hard drive
+    // Each time cooldown is set, it writes the current cooldown timestamp to the hard drive
     set cooldown(date) {
         if(!date) {
             try {

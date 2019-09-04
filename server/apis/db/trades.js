@@ -2,6 +2,7 @@ const db = require('../../data/config');
 
 module.exports = {
     insert,
+    insertMany,
     getOne,
     getMany
 }
@@ -11,6 +12,12 @@ module.exports = {
 function insert(trade) {
     return db('trades')
         .insert(trade)
+}
+
+//Add many trades to the database
+//Returns the new trade object
+function insertMany(trades) {
+    return db.batchInsert('trades',trades)
 }
 
 //Get a single trade object

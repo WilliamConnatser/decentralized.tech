@@ -3,7 +3,7 @@ exports.up = function (knex) {
         table.primary(['exchange', 'trading_pair', 'time', 'price', 'amount'])
             .unique(['exchange', 'trading_pair', 'time', 'price', 'amount'])
         table.datetime('time')
-        table.integer('trade_id')
+        table.bigInteger('trade_id')
         table.float('price')
         table.float('amount')
         table.string('exchange')

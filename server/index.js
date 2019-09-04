@@ -30,7 +30,6 @@ bitstamp.getTradingPairs()
         //Get All Trades VIA REST API
         //Bitstamp does not support historical data
         res.forEach(tradingPair => {
-            //TODO: Debug ocassional bug (bind message supplies 568 parameters, but prepared statement "" requires 131640)  
             bitstamp.getAllTrades(tradingPair)
         })
         //Keep up with all trades via WS communication
@@ -39,15 +38,16 @@ bitstamp.getTradingPairs()
     .catch(e => console.log(`[BITSTAMP] ERROR: ${e.message}`))
 
 bithumb.getTradingPairs()
-.then(res => {
-    // For Each Trading Pair
-    // Get All Trades VIA REST API
-    // Bithumb does not support historical data
-    res.forEach(tradingPair => {
-        bithumb.getAllTrades(tradingPair)
+    .then(res => {
+        // For Each Trading Pair
+        // Get All Trades VIA REST API
+        // Bithumb does not support historical data
+        res.forEach(tradingPair => {
+            bithumb.getAllTrades(tradingPair)
+        })
+        //Bithumb does not appear to have WS
     })
-    //Bithumb does not appear to have WS
-})
+    .catch(e => console.log(`[BITHUMB] ERROR: ${e.message}`))
 
 kraken.getTradingPairs()
     .then(res => {
@@ -62,12 +62,20 @@ kraken.getTradingPairs()
         //Keep up with all trades via WS communication
         kraken.syncAllTrades(res)
     })
+    .catch(e => console.log(`[KRAKEN] ERROR: ${e.message}`))
     
 
-// gemini.getTradingPairs().then(
-//     res => console.log(res)
-// )
-// gemini.getAllTrades('btcusd')
+gemini.getTradingPairs()
+    .then(res => {
+        //For Each Trading Pair
+        //Get All Trades VIA REST API
+        //Gemini only provides 7 days worth of historical data
+        res.forEach(tradingPair => {
+            gemini.getAllTrades(tradingPair)
+        })
+        //Todo: Implement Gemini WS
+    })
+    .catch(e => console.log(`[GEMINI] ERROR: ${e.message}`))
 
 // bitflyer.getTradingPairs()
 // .then(res=>console.log(res))

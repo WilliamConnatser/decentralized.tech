@@ -17,7 +17,7 @@ function getTradingPairs() {
             });
         })
         .catch(err => {
-            console.log(err.message)
+            console.log(err.message, '<< BITSTAMP REST (TRADING PAIRS)')
         })
     /*
     Response:
@@ -43,8 +43,9 @@ function getAllTrades(tradingPair) {
         .then(res => {
             //Parse trade data
             const tradeData = res.data.map(trade => {
+                const tradeDate = new Date(trade.date * 1000)
                 return {
-                    time: new Date(trade.date * 1000).toISOString(),
+                    time: tradeDate.toISOString(),
                     trade_id: trade.tid,
                     price: trade.price,
                     amount: trade.amount,
@@ -53,14 +54,14 @@ function getAllTrades(tradingPair) {
                 }
             })
             //Insert all trades into the database
-            tradesApi.insert(tradeData)
+            tradesApi.insertMany(tradeData)
                 .catch(err => {
-                    if(!err.message.includes('unique')) console.log(err.message, '<< BITSTAMP REST')
+                    if(!err.message.includes('unique')) console.log(err.message, '<< BITSTAMP REST INSERTION')
                 })
             console.log(`[BITSTAMP] +${res.data.length} Trades FROM ${tradingPair.id}`)
         })
         .catch(err => {
-            console.log(err)
+            console.log(err.message, '<< BITSTAMP REST (TRADES)')
         })
     /*
         [
@@ -116,7 +117,7 @@ function syncAllTrades(tradingPairs) {
             //Insert trade into the database
             tradesApi.insert(trade)
                 .catch(err => {
-                    if(!err.message.includes('unique')) console.log(err.message, '<< BITSTAMP WS')
+                    if(!err.message.includes('unique')) console.log(err.message, '<< BITSTAMP WS INSERTION')
                 })
             //Update the console with the WS status
             if (trade.trade_id % process.env.UPDATE_FREQ === 0)
@@ -145,7 +146,7 @@ function syncAllTrades(tradingPairs) {
 
     //Handle errors
     ws.on('error', (error) => {
-        console.log(`WebSocket error: ${error}`)
+        console.log(err.message, '<< BITSTAMP WS')
     })
 }
 
