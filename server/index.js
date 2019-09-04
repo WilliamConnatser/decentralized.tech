@@ -12,66 +12,55 @@ const poloniex = require('./apis/external/poloniex')
 const idex = require('./apis/external/idex')
 const trades = require('./apis/db/trades')
 
-coinbase.getTradingPairs().then(
-    res => {
-    //Trading Pairs
-    // console.log(res)
-    coinbase.getAllTrades(res[0])
+coinbase.getTradingPairs().then(res => {
+        //For Each Trading Pair
+        //Get All Trades VIA REST API
+        //Coinbase supports historical data
+        res.forEach(tradingPair => {
+            coinbase.getAllTrades(tradingPair)
+        })
+        //Keep up with all trades via WS communication
+        coinbase.syncAllTrades(res)
     })
-// coinbase.syncAllTrades([{
-//     id: 'BAT-USDC',
-//     base_currency: 'BAT',
-//     quote_currency: 'USDC',
-//     base_min_size: '1',
-//     base_max_size: '300000',
-//     base_increment: '1',
-//     quote_increment: '0.000001',
-//     display_name: 'BAT/USDC',
-//     status: 'online',
-//     margin_enabled: false,
-//     status_message: '',
-//     min_market_funds: '1',
-//     max_market_funds: '100000',
-//     post_only: false,
-//     limit_only: false,
-//     cancel_only: false
-// }]);
+    .catch(e => console.log(`[COINBASE] ERROR: ${e.message}`))
 
-// bitstamp.getTradingPairs()
-// .then(res => console.log(res))
-// bitstamp.getAllTrades({
-//     base_decimals: 8,
-//     minimum_order: '5.0 USD',
-//     name: 'BTC/USD',
-//     counter_decimals: 2,
-//     trading: 'Enabled',
-//     url_symbol: 'btcusd',
-//     description: 'Bitcoin / U.S. dollar'
-// })
-// bitstamp.syncAllTrades([{
-//         base_decimals: 8,
-//         minimum_order: '5.0 USD',
-//         name: 'XRP/USD',
-//         counter_decimals: 5,
-//         trading: 'Enabled',
-//         url_symbol: 'xrpusd',
-//         description: 'XRP / U.S. dollar'
-//     }
-// ])
+bitstamp.getTradingPairs()
+    .then(res => {
+        //For Each Trading Pair
+        //Get All Trades VIA REST API
+        //Bitstamp does not support historical data
+        res.forEach(tradingPair => {       
+            bitstamp.getAllTrades(tradingPair)
+        })
+        //Keep up with all trades via WS communication
+        bitstamp.syncAllTrades(res)
+    })
+    .catch(e => console.log(`[BITSTAMP] ERROR: ${e.message}`))
 
-// console.log(bithumb.getTradingPairs())
-// bithumb.getAllTrades({
-//         id: 'BTC',
-//         name: 'BTC/KRW'
-//     })
-// trades.getMany()
-// .then(response => {
-//     console.log(response)
-// })
+bithumb.getTradingPairs()
+.then(res => {
+    // For Each Trading Pair
+    // Get All Trades VIA REST API
+    // Bithumb does not support historical data
+    res.forEach(tradingPair => {
+        bithumb.getAllTrades(tradingPair)
+    })
+    //Todo: WS Implementation??
+})
 
-// kraken.getTradingPairs().then(
-//     res => console.log(res)
-// )
+kraken.getTradingPairs()
+    .then(res => {
+        //For Each Trading Pair
+        //Get All Trades VIA REST API
+        //Kraken does not give historical data
+        //REST API does support longpolling
+        //Polls every 5 minutes
+        res.forEach(tradingPair => {
+            kraken.getAllTrades(tradingPair)
+        })
+        //TODO: WS Implementation??
+    })
+    
 
 // gemini.getTradingPairs().then(
 //     res => console.log(res)
@@ -107,6 +96,11 @@ coinbase.getTradingPairs().then(
 // .then(tradingPairs => {
 //     // idex.getAllTrades(tradingPairs[0])
 //     // idex.syncAllTrades(tradingPairs[0])
+// })
+
+// trades.getMany()
+// .then(response => {
+//     console.log(response)
 // })
 
 const port = process.env.PORT || 5000;

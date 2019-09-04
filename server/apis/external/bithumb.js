@@ -1,4 +1,5 @@
-const axios = require('axios');
+const SmartAxios = require('../../utility/SmartAxios')
+const bithumb = new SmartAxios('bithumb')
 const objectToQuery = require('../../utility/objectToQuery');
 const tradesApi = require('../db/trades');
 
@@ -8,140 +9,40 @@ function getTradingPairs() {
         All of them involve the South Korean Won IE. CYPTO/KRW
         There are 89 trading pairs as of 7/21/19
     */
+    return bithumb.axios.get('https://api.bithumb.com/public/ticker/all')
+        .then(({data}) => {
 
-    const tickersTraded = [
-        'BTC',
-        'ETH',
-        'XRP',
-        'LTC',
-        'BCH',
-        'EOS',
-        'BSV',
-        'TRX',
-        'XLM',
-        'ADA',
-        'XMR',
-        'DASH',
-        'LINK',
-        'ETC',
-        'XEM',
-        'ZEC',
-        'BTG',
-        'VET',
-        'BAT',
-        'QTUM',
-        'OMG',
-        'BTT',
-        'BCD',
-        'ICX',
-        'WAVES',
-        'NPXS',
-        'ZRX',
-        'REP',
-        'HC',
-        'IOST',
-        'LAMB',
-        'THETA',
-        'ZIL',
-        'XVG',
-        'GXC',
-        'AE',
-        'STEEM',
-        'MIX',
-        'WTC',
-        'MCO',
-        'SNT',
-        'ENJ',
-        'VALOR',
-        'ELF',
-        'GNT',
-        'WAX',
-        'STRAT',
-        'HDAC',
-        'CON',
-        'ORBS',
-        'LOOM',
-        'PPT',
-        'CMT',
-        'LRC',
-        'POWR',
-        'TRUE',
-        'KNC',
-        'PIVX',
-        'ABT',
-        'ANKR',
-        'BHP',
-        'ETZ',
-        'POLY',
-        'ROM',
-        'ITC',
-        'CTXC',
-        'MTL',
-        'DAC',
-        'MITH',
-        'PAY',
-        'HYC',
-        'APIS',
-        'GTO',
-        'RDN',
-        'SALT',
-        'ETHOS',
-        'LBA',
-        'BZNT',
-        'OCN',
-        'AUTO',
-        'INS',
-        'RNT',
-        'TMTG',
-        'PST',
-        'ARN',
-        'AMO',
-        'DACC',
-        'WET',
-        'PLY',
-    ]
-
-    return tickersTraded.map(ticker => ({
-        id: ticker,
-        name: `${ticker}/KRW`
-    }));
+            return Object.keys(data.data).map(ticker => ({
+                id: ticker,
+                name: `${ticker.toLowerCase()}krw`
+            }));
+        });
 }
 
-function getAllTrades(tradingPair, cont_no) {
-    //Notify console API is alive
-    if (cont_no % process.env.UPDATE_FREQ === 0)
-    console.log(`API ALIVE - Bithumb - ${tradingPair.name}`)
+function getAllTrades(tradingPair) {
     //Get Bithumb trades for a specific trading pair
-    //Use the last cont_no in the response to get older transactions
+    //Bithumb does not have any way to retrieve historical trades
     const queryParams = {
         count: 100
     }
-    if (cont_no)
-        queryParams.count_no = cont_no;
-    axios.get(`${process.env.BITHUMB_REST}/transaction_history/${tradingPair.id}${objectToQuery(queryParams)}`)
+    bithumb.axios.get(`${process.env.BITHUMB_REST}/transaction_history/${tradingPair.id}${objectToQuery(queryParams)}`)
         .then(({data}) => {
             //Add exchange and trading pair data to each object in array of objects
-            const hydratedData = data.data.map(trade => {
-                return {
-                    time: new Date(trade.transaction_date).toISOString(),
-                    trade_id: trade.cont_no,
+            data.data.forEach(trade => {
+                const tradeDate = new Date(trade.transaction_date)
+                //Insert it into the database
+                tradesApi.insert({
+                    time: tradeDate.toISOString(),
                     price: trade.price,
                     amount: trade.units_traded,
                     exchange: 'bithumb',
                     trading_pair: tradingPair.name
-                }
+                }).catch(err => {
+                    if(!err.message.includes('unique')) console.log(err.message)
+                })
             })
-            //Insert it into the database
-            tradesApi.insert(hydratedData);
-            //If the response consisted of 100 trades
-            //Then recursively get the next 100 trades
-            if(hydratedData.length === 100) {                
-                const lastContNo = hydratedData[hydratedData.length-1].cont_no;
-                //Rate limit requests by .25 seconds
-                //Todo: There are 89 trading pairs and only 55 requests allowed per second
-                //Will need to figure out a way to rate limit requests across all trading pairs
-                setTimeout(() => getAllTrades(tradingPair,lastContNo),250)
-            }
+
+            console.log(`[BITHUMB] +${data.data.length} Trades FROM ${tradingPair.name}`)
         })
         .catch(err => {
             console.log(err)
@@ -149,7 +50,6 @@ function getAllTrades(tradingPair, cont_no) {
         // Example response:
         // [
         //     {
-        //         cont_no: '37998960',
         //         transaction_date: '2019-07-22 08:07:03',
         //         type: 'ask',
         //         units_traded: '0.0267',

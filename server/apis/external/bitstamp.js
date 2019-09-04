@@ -1,19 +1,23 @@
-const axios = require('axios');
-const WebSocket = require('ws');
-const objectToQuery = require('../../utility/objectToQuery');
-const tradesApi = require('../db/trades');
+const SmartAxios = require('../../utility/SmartAxios')
+const bitstamp = new SmartAxios('bitstamp')
+const WebSocket = require('ws')
+const objectToQuery = require('../../utility/objectToQuery')
+const tradesApi = require('../db/trades')
 
 function getTradingPairs() {
-
     //Get Bitstamp trading pairs
     //The url_symbol property can be used to get trading-pair-specific trades
-    return axios.get(`${process.env.BITSTAMP_REST}/trading-pairs-info`)
+    return bitstamp.axios.get(`${process.env.BITSTAMP_REST}/trading-pairs-info`)
         .then(res => {
-            //Return response as-is
-            return res.data;
+            //Return parsed response
+            return res.data.map(tradingPair => {
+                return {
+                    id: tradingPair.url_symbol
+                }
+            });
         })
         .catch(err => {
-            console.log(err)
+            console.log(err.message)
         })
     /*
     Response:
@@ -35,23 +39,23 @@ function getAllTrades(tradingPair) {
     //Get Bitstamp trades for a specific trading pair
     //Bitstamp only has previous 24hr data available.. :\
     //Will need to source historical data separately
-    axios.get(`${process.env.BITSTAMP_REST}/transactions/${tradingPair.url_symbol}?time=day`)
+    bitstamp.axios.get(`${process.env.BITSTAMP_REST}/transactions/${tradingPair.id}?time=day`)
         .then(res => {
-            //Notify console API is alive
-            console.log(`REST ALIVE - Bitstamp - ${new Date(res.data[0].date*1000).toISOString()}`)
-            //Add exchange and trading pair data to each object in array of objects
-            const hydratedData = res.data.map(trade => {
-                return {
+            //Parse trade data
+            res.data.forEach(trade => {
+                //Insert it into the database
+                tradesApi.insert({
                     time: new Date(trade.date * 1000).toISOString(),
                     trade_id: trade.tid,
                     price: trade.price,
                     amount: trade.amount,
                     exchange: 'bitstamp',
-                    trading_pair: tradingPair.name
-                }
+                    trading_pair: tradingPair.id
+                }).catch(err => {
+                    if(!err.message.includes('unique')) console.log(err.message)
+                })
             })
-            //Insert it into the database
-            tradesApi.insert(hydratedData);
+            console.log(`[BITSTAMP] +${res.data.length} Trades FROM ${tradingPair.id}`)
         })
         .catch(err => {
             console.log(err)
@@ -73,11 +77,11 @@ function getAllTrades(tradingPair) {
 function syncAllTrades(tradingPairs) {
     //Setup WS
     const ws = new WebSocket(process.env.BITSTAMP_WS)
-    const tradingPairIds = tradingPairs.map(tradingPair => tradingPair.url_symbol)
+    const tradingPairIds = tradingPairs.map(tradingPair => tradingPair.id)
 
     //Open WS connection
     ws.on('open', () => {
-        console.log(`Bitstamp WS Connected at ${process.env.BITSTAMP_WS}`)
+        console.log(`[BITSTAMP] - WS Connected at ${process.env.BITSTAMP_WS}`)
         //Send subscription message for each trading pair
         tradingPairIds.forEach(tradingPair => {
             const subscriptionConfig = JSON.stringify({
@@ -95,8 +99,8 @@ function syncAllTrades(tradingPairs) {
         data = JSON.parse(data);
         //If message includes a successful trade
         if (data.event === 'trade') {
-            //Grab the url_symbol from the channel property
-            const url_symbol = data.channel.split('_')[data.channel.split('_').length - 1]
+            //Grab the id from the channel property
+            const id = data.channel.split('_')[data.channel.split('_').length - 1]
             //Construct trade row
             const tradeData = data.data;
             const trade = {
@@ -105,13 +109,13 @@ function syncAllTrades(tradingPairs) {
                 price: tradeData.price,
                 amount: tradeData.amount,
                 exchange: 'bitstamp',
-                trading_pair: tradingPairs.find(tradingPair => tradingPair.url_symbol === url_symbol).name
+                trading_pair: id
             }
             //Insert trade into the database
             tradesApi.insert(trade);
             //Update the console with the WS status
             if (trade.trade_id % process.env.UPDATE_FREQ === 0)
-                console.log(`WS ALIVE - Bitstamp - ${url_symbol} - ${new Date(tradeData.timestamp * 1000).toISOString()}`)
+                console.log(`[BITSTAMP] - WS ALIVE - ${id} - ${new Date(tradeData.timestamp * 1000).toISOString()}`)
         }
         //If the WS server is going down for maintenance
         else if (data.event == 'bts-request_reconnect') {

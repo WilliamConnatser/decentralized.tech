@@ -7,7 +7,7 @@
     "db_start": "docker run --rm --name postgres_dev -d -p 6000:5432 postgres",
     "db_reset": "npx knex migrate:rollback && npx knex migrate:latest",
     "db_stop": "docker container stop postgres_dev",
-    "dev": "npx cross-env NODE_ENV=development nodemon index.js"
+    "dev": "npx cross-env NODE_ENV=development nodemon --http-parser=legacy index.js"
   },
   "author": "",
   "license": "MIT",
