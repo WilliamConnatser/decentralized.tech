@@ -29,7 +29,8 @@ bitstamp.getTradingPairs()
         //For Each Trading Pair
         //Get All Trades VIA REST API
         //Bitstamp does not support historical data
-        res.forEach(tradingPair => {       
+        res.forEach(tradingPair => {
+            //TODO: Debug ocassional bug (bind message supplies 568 parameters, but prepared statement "" requires 131640)  
             bitstamp.getAllTrades(tradingPair)
         })
         //Keep up with all trades via WS communication
@@ -45,7 +46,7 @@ bithumb.getTradingPairs()
     res.forEach(tradingPair => {
         bithumb.getAllTrades(tradingPair)
     })
-    //Todo: WS Implementation??
+    //Bithumb does not appear to have WS
 })
 
 kraken.getTradingPairs()
@@ -58,7 +59,8 @@ kraken.getTradingPairs()
         res.forEach(tradingPair => {
             kraken.getAllTrades(tradingPair)
         })
-        //TODO: WS Implementation??
+        //Keep up with all trades via WS communication
+        kraken.syncAllTrades(res)
     })
     
 

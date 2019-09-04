@@ -42,20 +42,22 @@ function getAllTrades(tradingPair, since=null) {
                 setTimeout(() => getAllTrades(tradingPair, data.result.last), 25000)
             }
             //Parse each trade response
-            data.result[tradingPair.id].forEach(trade => {
+            const tradeData = data.result[tradingPair.id].map(trade => {
                 const tradeDate = new Date(trade[2])
-                //Insert parsed trade into the database
-                tradesApi.insert({
+                return {
                     time: tradeDate.toISOString(),
                     price: trade[0],
                     amount: trade[1],
                     exchange: 'kraken',
                     trading_pair: tradingPair.name
-                }).catch(err => {
-                    if(!err.message.includes('unique')) console.log(err.message)
-                })
+                }
             })
-            console.log(`[KRAKEN] +${data.result[tradingPair.id].length} Trades FROM ${tradingPair.name} (since = ${since})`)
+            //Insert parsed trade into the database
+            tradesApi.insert(tradeData)
+                .catch(err => {
+                    if(!err.message.includes('unique')) console.log(err.message, '<< KRAKEN REST')
+                })
+            console.log(`[KRAKEN] +${tradeData.length} Trades FROM ${tradingPair.name} (since = ${since})`)
         })
         .catch(err => {
             console.log(err)
@@ -74,7 +76,68 @@ function getAllTrades(tradingPair, since=null) {
     */
 }
 
+function syncAllTrades(tradingPairs) {
+    //Setup WS
+    const ws = new WebSocket(process.env.KRAKEN_WS)
+    //Channel Dictionary
+    //Maps channels to trading pairs
+    const channelLookup = {}
+
+    //Open WS connection
+    ws.on('open', () => {
+        console.log(`[KRAKEN] WS Connected At ${process.env.KRAKEN_WS}`)
+        //Send subscription message
+        const tradingPairIds = tradingPairs.map(tradingPair => tradingPair.ws)
+        const subscriptionConfig = JSON.stringify({
+            event: "subscribe",
+            pair: tradingPairIds,
+            subscription: {
+                name: "trade"
+            }
+        })
+        ws.send(subscriptionConfig);
+    });
+
+    //Handle messages received
+    ws.on('message', (data) => {
+        data = JSON.parse(data)
+        if (Array.isArray(data)) {
+            //Parse trades
+            const tradeData = data[1].map(trade => {
+                const tradeDate = new Date(Number(trade[2]))
+                //Ocassionally update the console with the WS status
+                if (tradeDate.getTime() % process.env.UPDATE_FREQ === 0)
+                    console.log(`[KRAKEN] WS ALIVE - ${tradeDate.toISOString()} - ${channelLookup[data[0]]}`)
+                //Parse trade data
+                return {
+                    time: tradeDate.toISOString(),
+                    price: trade[0],
+                    amount: trade[1],
+                    exchange: 'kraken',
+                    trading_pair: channelLookup[data[0]]
+                }
+            })
+            //Insert the parsed trades into the database
+            tradesApi.insert(tradeData)
+                .catch(err => {
+                    if(!err.message.includes('unique')) console.log(err.message, '<< KRAKEN WS')
+                })
+
+        } else {
+            if(data.event && data.event === 'subscriptionStatus' && data.status !== 'error') {
+                channelLookup[data.channelID] = tradingPairs.find(tradingPair => tradingPair.ws === data.pair).name
+            }
+        }
+    });
+
+    //Handle errors
+    ws.on('error', (error) => {
+        console.log(`WebSocket error: ${error}`)
+    })
+}
+
 module.exports = {
     getTradingPairs,
-    getAllTrades
+    getAllTrades,
+    syncAllTrades
 }

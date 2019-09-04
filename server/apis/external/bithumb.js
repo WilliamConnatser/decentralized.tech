@@ -11,11 +11,13 @@ function getTradingPairs() {
     */
     return bithumb.axios.get('https://api.bithumb.com/public/ticker/all')
         .then(({data}) => {
-
-            return Object.keys(data.data).map(ticker => ({
+            const tradingPairs = Object.keys(data.data).map(ticker => ({
                 id: ticker,
                 name: `${ticker.toLowerCase()}krw`
-            }));
+            }))
+            //Needed because the last key `date` is not a trading pair
+            tradingPairs.pop()
+            return tradingPairs
         });
 }
 
@@ -28,24 +30,26 @@ function getAllTrades(tradingPair) {
     bithumb.axios.get(`${process.env.BITHUMB_REST}/transaction_history/${tradingPair.id}${objectToQuery(queryParams)}`)
         .then(({data}) => {
             //Add exchange and trading pair data to each object in array of objects
-            data.data.forEach(trade => {
+            const tradeData = data.data.map(trade => {
                 const tradeDate = new Date(trade.transaction_date)
-                //Insert it into the database
-                tradesApi.insert({
+                return {
                     time: tradeDate.toISOString(),
                     price: trade.price,
                     amount: trade.units_traded,
                     exchange: 'bithumb',
                     trading_pair: tradingPair.name
-                }).catch(err => {
-                    if(!err.message.includes('unique')) console.log(err.message)
-                })
+                }
             })
+            //Insert all trades into the database
+            tradesApi.insert(tradeData)
+                .catch(err => {
+                    if(!err.message.includes('unique')) console.log(err.message, '<< BITHUMB REST')
+                })
 
             console.log(`[BITHUMB] +${data.data.length} Trades FROM ${tradingPair.name}`)
         })
         .catch(err => {
-            console.log(err)
+            console.log(err, tradingPair.id)
         })    
         // Example response:
         // [

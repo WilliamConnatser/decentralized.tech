@@ -63,19 +63,21 @@ function getAllTrades(tradingPair, cbAfter=null) {
                 setTimeout(() => getAllTrades(tradingPair, res.headers['cb-after']), 250)
             }
             //Parse each trade response
-            res.data.forEach(trade => {
-                //Insert parsed trade into the database
-                tradesApi.insert({
+            const tradeData = res.data.map(trade => {
+                return {
                     time: new Date(trade.time).toISOString(),
                     trade_id: trade.trade_id,
                     price: trade.price,
                     amount: trade.size,
                     exchange: 'coinbase',
                     trading_pair: tradingPair.name
-                }).catch(err => {
-                    if(!err.message.includes('unique')) console.log(err.message)
-                })
+                }
             })
+            //Insert parsed trades into the database
+            tradesApi.insert(tradeData)
+                .catch(err => {
+                    if(!err.message.includes('unique')) console.log(err.message, '<< COINBASE REST')
+                })
             console.log(`[COINBASE] +${res.data.length} Trades FROM ${tradingPair.name} (cbAfter = ${cbAfter})`)
         })
         .catch(err => {
@@ -131,7 +133,10 @@ function syncAllTrades(tradingPairs) {
                 trading_pair: tradingPair
             }
             //Insert it into the database
-            tradesApi.insert(trade);
+            tradesApi.insert(trade)
+                .catch(err => {
+                    if(!err.message.includes('unique')) console.log(err.message, '<< COINBASE WS')
+                })
             //Update the console with the WS status
             if (trade.trade_id % process.env.UPDATE_FREQ === 0)
                 console.log(`[COINBASE] WS ALIVE - ${trade.time} - ${tradingPair}`)

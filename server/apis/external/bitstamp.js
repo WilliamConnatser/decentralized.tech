@@ -42,19 +42,21 @@ function getAllTrades(tradingPair) {
     bitstamp.axios.get(`${process.env.BITSTAMP_REST}/transactions/${tradingPair.id}?time=day`)
         .then(res => {
             //Parse trade data
-            res.data.forEach(trade => {
-                //Insert it into the database
-                tradesApi.insert({
+            const tradeData = res.data.map(trade => {
+                return {
                     time: new Date(trade.date * 1000).toISOString(),
                     trade_id: trade.tid,
                     price: trade.price,
                     amount: trade.amount,
                     exchange: 'bitstamp',
                     trading_pair: tradingPair.id
-                }).catch(err => {
-                    if(!err.message.includes('unique')) console.log(err.message)
-                })
+                }
             })
+            //Insert all trades into the database
+            tradesApi.insert(tradeData)
+                .catch(err => {
+                    if(!err.message.includes('unique')) console.log(err.message, '<< BITSTAMP REST')
+                })
             console.log(`[BITSTAMP] +${res.data.length} Trades FROM ${tradingPair.id}`)
         })
         .catch(err => {
@@ -112,7 +114,10 @@ function syncAllTrades(tradingPairs) {
                 trading_pair: id
             }
             //Insert trade into the database
-            tradesApi.insert(trade);
+            tradesApi.insert(trade)
+                .catch(err => {
+                    if(!err.message.includes('unique')) console.log(err.message, '<< BITSTAMP WS')
+                })
             //Update the console with the WS status
             if (trade.trade_id % process.env.UPDATE_FREQ === 0)
                 console.log(`[BITSTAMP] - WS ALIVE - ${id} - ${new Date(tradeData.timestamp * 1000).toISOString()}`)
