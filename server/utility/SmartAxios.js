@@ -12,13 +12,19 @@ class SmartAxios {
 
         // Rate limit defaults to 1 second
         // Only the exchanges that specify in their API documentation
-        // That they have faster limits are defined in switch statement
+        // That they have faster/slower limits are defined in switch statement
         switch(this.exchange) {
             case 'coinbase':
                 this.rateLimit = .25
                 break
             case 'bithumb':
                 this.rateLimit = .015
+                break
+            case 'ethfinex':
+                this.rateLimit = .5
+                break
+            case 'idex':
+                this.rateLimit = .25
                 break
             default:
                 this.rateLimit = 1

@@ -35,9 +35,6 @@
 - Therefore, currently the focus is on writing modules which can aggregate raw trade data
 
 # Todo
-- Write Kraken API/WS Module
-    - **ON HOLD**
-    - It seems granular trade data is not accessible via their API?
 - Write Binance API/WS Module 
     - **ON HOLD**
     - Americans can not register for an account, and therefore can not receive an API key

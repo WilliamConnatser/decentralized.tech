@@ -1,26 +1,24 @@
-//API users should not make more than 300 requests per 5 minute.
-
-const axios = require('axios');
-const WebSocket = require('ws');
-const objectToQuery = require('../../utility/objectToQuery');
-const tradesApi = require('../db/trades');
+const SmartAxios = require('../../utility/SmartAxios')
+const liquid = new SmartAxios('liquid')
+const WebSocket = require('ws')
+const objectToQuery = require('../../utility/objectToQuery')
+const tradesApi = require('../db/trades')
 
 function getTradingPairs() {
-
     //Get Liquid trading pairs
     //The id property can be used in API requests
-    return axios.get(`${process.env.LIQUID_REST}/products`)
+    return liquid.axios.get(`${process.env.LIQUID_REST}/products`)
         .then(res => {
             //Filter and parse response
             const parsedPairs = res.data.filter(tradingPair => !tradingPair.disabled)
                 .map(tradingPair => ({
                     id: tradingPair.id,
                     name: tradingPair.currency_pair_code.toLowerCase()
-                }));
-            return parsedPairs;
+                }))
+            return parsedPairs
         })
         .catch(err => {
-            console.log(err)
+            console.log(err.message, '<< LIQUID REST (TRADING PAIRS)')
         })
     /* Response:
         [
@@ -65,14 +63,10 @@ function getAllTrades(tradingPair, page = 1) {
         product_id: tradingPair.id,
         page,
         limit: 1000
-    });
-
-    //Console Message About Liquid Syncing
-    if (Number(page) % process.env.UPDATE_FREQ === 0)
-        console.log(`INIT SYNC - Liquid - ${tradingPair.name} ${page}`)
+    })
 
     //Get Liquid trades for a specific trading pair ID
-    axios.get(`${process.env.LIQUID_REST}/executions${queryParam}`)
+    liquid.axios.get(`${process.env.LIQUID_REST}/executions${queryParam}`)
         .then(({data}) => {
             //If there was trades in the response, then continue getting more trades
             if (data.total_pages > data.current_page) {
@@ -81,7 +75,7 @@ function getAllTrades(tradingPair, page = 1) {
                 setTimeout(() => getAllTrades(tradingPair, page+1, 250));
             }
             //Add exchange and trading pair data to each object in array of objects
-            const hydratedData = data.models.map(trade => {
+            const parsedTrades = data.models.map(trade => {
                 return {
                     time: new Date(trade.created_at * 1000).toISOString(),
                     trade_id: trade.id,
@@ -91,12 +85,17 @@ function getAllTrades(tradingPair, page = 1) {
                     trading_pair: tradingPair.name
                 }
             })
-            console.log(hydratedData)
-            //Insert it into the database
-            tradesApi.insert(hydratedData);
+            //Insert parsed trades into the database
+            tradesApi.insert(parsedTrades)
+                .catch(err => {
+                    if(!err.message.includes('unique')) {
+                        console.log(err.message, '<< LIQUID REST INSERTION')
+                    }
+                })
+            console.log(`[LIQUID] +${parsedTrades.length} Trades FROM ${tradingPair.name}`)
         })
         .catch(err => {
-            console.log(err)
+            console.log(err.message, '<< LIQUID REST (TRADES)')
         })
     /*
         [

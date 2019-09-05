@@ -1,4 +1,5 @@
-const axios = require('axios');
+const SmartAxios = require('../../utility/SmartAxios')
+const idex = new SmartAxios('idex')
 const WebSocket = require('ws');
 const objectToQuery = require('../../utility/objectToQuery');
 const tradesApi = require('../db/trades');
@@ -7,7 +8,7 @@ function getTradingPairs() {
 
     //Get IDEX trading pairs
     //The id property can be used in API requests
-    return axios.get(`${process.env.IDEX_REST}/returnTicker`)
+    return idex.axios.get(`${process.env.IDEX_REST}/returnTicker`)
         .then(res => {
             //Parse response
             return Object.keys(res.data).map(key => ({
@@ -19,7 +20,7 @@ function getTradingPairs() {
             }));
         })
         .catch(err => {
-            console.log(err)
+            console.log(err.message, '<< IDEX REST (TRADING PAIR)')
         })
     /* Response:
     {
@@ -48,23 +49,16 @@ function getAllTrades(tradingPair, cursor=null) {
     if (cursor) {
         queryBody.cursor = cursor
     }
-
-    //IDEX Syncing
-    if (Number(cursor) % process.env.UPDATE_FREQ === 0)
-        console.log(`INIT SYNC - IDEX - ${tradingPair.name} ${cursor}`)
-
     //Get IDEX trades for a specific trading pair ID
-    axios.post(`${process.env.IDEX_REST}/returnTradeHistory`, queryBody)
+    idex.axios.post(`${process.env.IDEX_REST}/returnTradeHistory`, queryBody)
         .then(res => {
-            console.log(res.headers['idex-next-cursor'])
             //The header containers a idex-next-cursor property which can be used to get data
             //Which comes before the data included in this request via the before param
             if (res.headers['idex-next-cursor']) {
-                //Delay calls .25 seconds to obey by rate limits
-                setTimeout(() => getAllTrades(tradingPair, res.headers['idex-next-cursor']), 250)
+                getAllTrades(tradingPair, res.headers['idex-next-cursor'])
             }
             //Add exchange and trading pair data to each object in array of objects
-            const hydratedData = res.data.map(trade => {
+            const parsedTrades = res.data.map(trade => {
                 return {
                     time: new Date(trade.timestamp*1000),
                     trade_id: trade.tid,
@@ -75,10 +69,16 @@ function getAllTrades(tradingPair, cursor=null) {
                 }
             })
             //Insert it into the database
-            tradesApi.insert(hydratedData);
+            tradesApi.insert(parsedTrades)
+                .catch(err => {
+                    if(!err.message.includes('unique')) {
+                        console.log(err.message, '<< IDEX REST INSERTION')
+                    }
+                })
+            console.log(`[IDEX] +${parsedTrades.length} Trades FROM ${tradingPair.name}`)
         })
         .catch(err => {
-            console.log(err)
+            console.log(err.message, '<< IDEX REST (TRADES)')
         })
     /*
         [

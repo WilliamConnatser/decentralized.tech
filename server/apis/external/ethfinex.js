@@ -1,16 +1,16 @@
-const axios = require('axios');
-const WebSocket = require('ws');
-const objectToQuery = require('../../utility/objectToQuery');
-const tradesApi = require('../db/trades');
+const SmartAxios = require('../../utility/SmartAxios')
+const ethfinex = new SmartAxios('ethfinex')
+const WebSocket = require('ws')
+const objectToQuery = require('../../utility/objectToQuery')
+const tradesApi = require('../db/trades')
 
 function getTradingPairs() {
-
     //Get EthFinex trading pairs
-    return axios.get(`${process.env.ETHFINEX_REST}/tickers?symbols=ALL`)
+    return ethfinex.axios.get(`${process.env.ETHFINEX_REST}/tickers?symbols=ALL`)
         .then(res => {
             //The response can include both trading pairs and single currencies
             //Filter for only the trading pairs
-            let tradingPairs = res.data.filter(responseArray => responseArray.length == 11);
+            let tradingPairs = res.data.filter(responseArray => responseArray.length == 11)
             //Convert to id / name convention
             tradingPairs = tradingPairs.map(tradingPair => {
                 return {
@@ -19,10 +19,10 @@ function getTradingPairs() {
                 }
             })
             //Return sanitized trading pairs
-            return tradingPairs;
+            return tradingPairs
         })
         .catch(err => {
-            console.log(err)
+            console.log(err.message, '<< ETHFINEX REST (TRADING PAIRS)')
         })
     /* Response:
         [
@@ -47,30 +47,21 @@ function getTradingPairs() {
 
 function getAllTrades(tradingPair, end) {
     //Construct query parameters
-    var queryParams
-    if (end) {
-        queryParams = objectToQuery({
-            limit: 5000,
-            end
-        });
-    } else {
-        queryParams = objectToQuery({
-            limit: 5000
-        });
+    var queryParams = {
+        limit: 5000
     }
-
-    //Log To Console About Syncing
-    if (Number(end) % process.env.UPDATE_FREQ === 0)
-        console.log(`INIT SYNC - EthFinex - ${tradingPair.name} ${end}`)
+    if (end) {
+        queryParams.end = end
+    }    
+    queryParams = objectToQuery(queryParams)
 
     //Get EthFinex trades for a specific trading pair
-    //TODO: Only 30 requests are allowed per minute
-    axios.get(`${process.env.ETHFINEX_REST}/trades/${tradingPair.id}/hist${queryParams}`)
+    ethfinex.axios.get(`${process.env.ETHFINEX_REST}/trades/${tradingPair.id}/hist${queryParams}`)
         .then(({
             data
         }) => {
             //Add exchange and trading pair data to each object in array of objects
-            const hydratedData = data.map(trade => {
+            const parsedData = data.map(trade => {
                 return {
                     time: new Date(trade[1]).toISOString(),
                     trade_id: trade[0],
@@ -80,12 +71,17 @@ function getAllTrades(tradingPair, end) {
                     trading_pair: tradingPair.name
                 }
             })
-            console.log(hydratedData)
             //Insert it into the database
-            tradesApi.insert(hydratedData);
+            tradesApi.insert(parsedData)
+                .catch(err => {
+                    if(!err.message.includes('unique')) {
+                        console.log(err.message, '<< ETHFINEX REST INSERTION')
+                    }
+                })
+            console.log(`[ETHFINEX] +${parsedData.length} Trades FROM ${tradingPair.name}`)
         })
         .catch(err => {
-            console.log(err)
+            console.log(err.message, '<< ETHFINEX REST (TRADES)')
         })
     /*
         [
@@ -117,20 +113,19 @@ function syncAllTrades(tradingPairs) {
                     channel: 'trades',
                     pair: tradingPair.id
                 })
-                ws.send(subscriptionConfig);
-            },1000*i);            
-        });
-    });
+                ws.send(subscriptionConfig)
+            },1000*i)      
+        })
+    })
 
     //Handle messages received
     ws.on('message', (data) => {
-        data = JSON.parse(data);
+        data = JSON.parse(data)
         //Subscription responses are sent as objects
         //Trades are sent as arrays
         if (!Array.isArray(data)) {
             if(data.event === 'subscribed') {
-                channelLookup[data.chanId] = data.pair.toLowerCase();
-                console.log('Subscribed to', channelLookup[data.chanId])
+                channelLookup[data.chanId] = data.pair.toLowerCase()
             }
         } else {
             let tradingPair = channelLookup[data[0]]
@@ -145,8 +140,7 @@ function syncAllTrades(tradingPairs) {
                         exchange: 'ethfinex',
                         trading_pair: tradingPair
                     }
-                    console.log("initial sync", tradeData)
-                    tradesApi.insert(tradeData);
+                    tradesApi.insert(tradeData)
                 });
             }
             //Otherwise data[1] will === "te" or "tu"
@@ -162,15 +156,17 @@ function syncAllTrades(tradingPairs) {
                     exchange: 'ethfinex',
                     trading_pair: tradingPair
                 }
-                console.log("new trade", tradeData)
-                tradesApi.insert();
+                tradesApi.insert()
+                    .catch(err => {
+                        console.log(err.message, '<< ETHFINEX WS INSERTION')
+                    })
             }
         }
     });
 
     //Handle errors
-    ws.on('error', (error) => {
-        console.log(`WebSocket Error: ${error}`)
+    ws.on('error', (err) => {
+        console.log(err.message, '<< ETHFINEX WS')
     })
 }
 

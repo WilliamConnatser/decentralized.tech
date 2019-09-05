@@ -1,12 +1,13 @@
-const axios = require('axios');
-const WebSocket = require('ws');
-const objectToQuery = require('../../utility/objectToQuery');
-const tradesApi = require('../db/trades');
+const SmartAxios = require('../../utility/SmartAxios')
+const poloniex = new SmartAxios('poloniex')
+const WebSocket = require('ws')
+const objectToQuery = require('../../utility/objectToQuery')
+const tradesApi = require('../db/trades')
 
 function getTradingPairs() {
     //Get Poloniex trading pairs
     //The product_code property can be used to get trading-pair-specific trades
-    return axios.get(`${process.env.POLONIEX_REST}?command=returnTicker`)
+    return poloniex.axios.get(`${process.env.POLONIEX_REST}?command=returnTicker`)
         .then(res => {
             //Parse trading pairs
             const tradingPairs = Object.keys(res.data).map(tradingPair => ({
@@ -14,10 +15,10 @@ function getTradingPairs() {
                 name: tradingPair.replace('_', '').toLowerCase(),
                 wsId: res.data[tradingPair].id
             }))
-            return tradingPairs;
+            return tradingPairs
         })
         .catch(err => {
-            console.log(err)
+            console.log(err.message, '<< POLONIEX REST (TRADING PAIR)')
         })
     /*
     Response:
@@ -51,15 +52,14 @@ function getAllTrades(tradingPair, end=Date.now()) {
         currencyPair: tradingPair.id,
         end
     }
-    axios.get(`${process.env.POLONIEX_REST}${objectToQuery(queryParams)}`)
+    poloniex.axios.get(`${process.env.POLONIEX_REST}${objectToQuery(queryParams)}`)
         .then(({
             data
         }) => {
-            console.log(data[0].date)
             //Add exchange and trading pair data to each object in array of objects
-            const hydratedData = data.map(trade => {
+            const parsedTrades = data.map(trade => {
                 return {
-                    time: new Date(trade.date * 1000).toISOString(),
+                    time: new Date(trade.date).toISOString(),
                     trade_id: trade.globalTradeID,
                     price: trade.rate,
                     amount: trade.total,
@@ -68,17 +68,22 @@ function getAllTrades(tradingPair, end=Date.now()) {
                 }
             })
             //Insert it into the database
-            tradesApi.insert(hydratedData);
+            tradesApi.insert(parsedTrades)
+                .catch(err => {
+                    if(!err.message.includes('unique')) {
+                        console.log(err.message, '<< POLONIEX REST INSERTION')
+                    }
+                })
+            console.log(`[POLONIEX] +${parsedTrades.length} Trades FROM ${tradingPair.name}`)
             // If the response consisted of trades
             // Then recursively get the next trades
-            if (hydratedData.length > 0) {
-                const end = new Date(data[data.length - 1].date).getTime() / 1000;
-                //Todo: No mention of rate limits for this API ???
-                setTimeout(() => getAllTrades(tradingPair, end), 250)
+            if (parsedTrades.length > 0) {
+                const end = new Date(data[data.length - 1].date).getTime() / 1000
+                getAllTrades(tradingPair, end)
             }
         })
         .catch(err => {
-            console.log(err)
+            console.log(err.message, '<< POLONIEX REST (TRADE)')
         })
     // Example response:
     // [
@@ -109,31 +114,34 @@ function syncAllTrades(tradingPairs) {
                 command: 'subscribe',
                 channel: `${tradingPair.wsId}`
             });
-            ws.send(subscriptionConfig);
+            ws.send(subscriptionConfig)
         })
     });
 
     //Handle messages received
     ws.on('message', (data) => {
-        data = JSON.parse(data);
+        data = JSON.parse(data)
         //Grab the trading pair from the channel property
-        const tradingPairId = tradingPairs.find(tradingPair => tradingPair.wsId === data[0]);
+        const tradingPairId = tradingPairs.find(tradingPair => tradingPair.wsId === data[0])
         //Each message contains an array of trades and order book actions (asks and bids)
         //Trades are denoted by having a the letter t as the first item of the array
-        const tradeDataArray = data[2].filter(action => action[0] === 't');
+        const tradeDataArray = data[2].filter(action => action[0] === 't')
         // console.log(tradeDataArray)
-        for(tradeData of tradeDataArray) {            
+        for(tradeData of tradeDataArray) {        
             //Construct trade row
             const trade = {
-                time: new Date(tradeData[5] * 1000).toISOString(),
-                trade_id: parseInt(tradeData[1]),
-                price: Number(tradeData[3]),
-                amount: Number(tradeData[4]),
+                time: new Date(tradeData[5]).toISOString(),
+                trade_id: Number(tradeData[1]),
+                price: tradeData[3],
+                amount: tradeData[4],
                 exchange: 'poloniex',
                 trading_pair: tradingPairId.name
             }
             //Insert trade into the database
-            tradesApi.insert(trade);
+            tradesApi.insert(trade)
+                .catch(err => {
+                    console.log(err.message, '<< POLONIEX WS INSERTION')
+                })
             //Update the console with the WS status
             if (trade.trade_id % process.env.UPDATE_FREQ === 0)
                 console.log(`WS ALIVE - Poloniex - ${tradingPairId.name} - ${tradeData.exec_date}`)
@@ -149,10 +157,9 @@ function syncAllTrades(tradingPairs) {
     //     1567312220
     // ]
 
-
     //Handle errors
     ws.on('error', (error) => {
-        console.log(`WebSocket error: ${error}`)
+        console.log(err.message, '<< POLONIEX WS')
     })
 }
 

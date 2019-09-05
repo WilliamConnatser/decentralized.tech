@@ -1,16 +1,17 @@
-const axios = require('axios');
-const WebSocket = require('ws');
-const objectToQuery = require('../../utility/objectToQuery');
-const tradesApi = require('../db/trades');
+const SmartAxios = require('../../utility/SmartAxios')
+const bitflyer = new SmartAxios('bitflyer')
+const WebSocket = require('ws')
+const objectToQuery = require('../../utility/objectToQuery')
+const tradesApi = require('../db/trades')
 
 function getTradingPairs() {
-
     //Get BitFlyer trading pairs
     //The product_code property can be used to get trading-pair-specific trades
-    return axios.get(`${process.env.BITFLYER_REST}/getmarkets`)
+    return bitflyer.axios.get(`${process.env.BITFLYER_REST}/getmarkets`)
         .then(res => {
             //Filter out futures and CFDs
-            //TODO: Currently not supporting either..
+            //TODO: Currently not supporting either futures or CFDs...
+            //Add support or continue to ignore?
             const filteredPairs = res.data.filter(tradingPair => !tradingPair.product_code.includes('FX_') && !tradingPair.product_code.includes('2019'));
             return filteredPairs.map(tradingPair => ({
                 id: tradingPair.product_code,
@@ -18,7 +19,7 @@ function getTradingPairs() {
             }))
         })
         .catch(err => {
-            console.log(err)
+            console.log(err.message, '<< BITFLYER REST (TRADING PAIRS)')
         })
     /*
     Response:
@@ -36,9 +37,6 @@ function getTradingPairs() {
 }
 
 function getAllTrades(tradingPair, before) {
-    //Notify console API is alive
-    if (before % process.env.UPDATE_FREQ === 0)
-        console.log(`API ALIVE - BitFlyer - ${tradingPair.name}`)
     //Get BitFlyer trades for a specific trading pair
     //Use the last before in the response to get older transactions
     const queryParams = {
@@ -47,13 +45,12 @@ function getAllTrades(tradingPair, before) {
     }
     if (before)
         queryParams.before = before;
-    axios.get(`${process.env.BITFLYER_REST}/getexecutions/${objectToQuery(queryParams)}`)
+    bitflyer.axios.get(`${process.env.BITFLYER_REST}/getexecutions/${objectToQuery(queryParams)}`)
         .then(({
             data
         }) => {
-            console.log(data)
             //Add exchange and trading pair data to each object in array of objects
-            const hydratedData = data.map(trade => {
+            const parsedData = data.map(trade => {
                 return {
                     time: new Date(trade.exec_date).toISOString(),
                     trade_id: trade.id,
@@ -63,18 +60,24 @@ function getAllTrades(tradingPair, before) {
                     trading_pair: tradingPair.name
                 }
             })
-            //Insert it into the database
-            tradesApi.insert(hydratedData);
+            //Insert parsed trades into the database
+            tradesApi.insert(parsedData)
+                .catch(err => {
+                    if(!err.message.includes('unique')) {
+                        console.log(err.message, '<< BITFLYER REST INSERTION')
+                    }
+                })
+            console.log(`[BITFLYER] +${parsedData.length} Trades FROM ${tradingPair}`)
             //If the response consisted of 100 trades
             //Then recursively get the next 100 trades
             if (hydratedData.length === 100) {
                 const before = hydratedData[hydratedData.length - 1].trade_id;
                 //Todo: No mention of rate limits for this API ???
-                setTimeout(() => getAllTrades(tradingPair, before), 250)
+                getAllTrades(tradingPair, before)
             }
         })
         .catch(err => {
-            console.log(err)
+            console.log(err.message, '<< BITFLYER REST')
         })
     // Example response:
     // [
@@ -131,7 +134,10 @@ function syncAllTrades(tradingPairs) {
                 trading_pair: tradingPairs.find(tradingPair => tradingPair.id === tradingPairId).name
             }
             //Insert trade into the database
-            tradesApi.insert(trade);
+            tradesApi.insert(trade)
+                .catch(err => {
+                    console.log(err.message, '<< BITFLYER WS INSERTION')
+                })
             //Update the console with the WS status
             if (trade.trade_id % process.env.UPDATE_FREQ === 0)
                 console.log(`WS ALIVE - Bitflyer - ${tradingPairId} - ${tradeData.exec_date}`)
@@ -150,7 +156,7 @@ function syncAllTrades(tradingPairs) {
 
     //Handle errors
     ws.on('error', (error) => {
-        console.log(`WebSocket error: ${error}`)
+        console.log(err.message, '<< BITFLYER WS')
     })
 }
 
