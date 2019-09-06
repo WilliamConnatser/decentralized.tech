@@ -12,50 +12,52 @@ const poloniex = require('./apis/external/poloniex')
 const idex = require('./apis/external/idex')
 const trades = require('./apis/db/trades')
 
+/*  
+    COINBASE - REST API + WS
+    Coinbase provides historical data
+*/
 coinbase.getTradingPairs().then(res => {
-        //For Each Trading Pair
-        //Get All Trades VIA REST API
-        //Coinbase supports historical data
         res.forEach(tradingPair => {
             coinbase.getAllTrades(tradingPair)
         })
-        //Keep up with all trades via WS communication
         coinbase.syncAllTrades(res)
     })
     .catch(e => console.log(`[COINBASE] ERROR: ${e.message}`))
 
+/*  
+    BITSTAMP - REST API + WS
+    Bitstamp does not provide historical data
+*/
 bitstamp.getTradingPairs()
     .then(res => {
-        //For Each Trading Pair
-        //Get All Trades VIA REST API
-        //Bitstamp does not support historical data
         res.forEach(tradingPair => {
             bitstamp.getAllTrades(tradingPair)
         })
-        //Keep up with all trades via WS communication
         bitstamp.syncAllTrades(res)
     })
     .catch(e => console.log(`[BITSTAMP] ERROR: ${e.message}`))
 
+/*
+    BITHUMB - REST API
+    Bithumb does not provide historical data
+    Bithumb does not appear to have WS
+*/
 bithumb.getTradingPairs()
     .then(res => {
-        // For Each Trading Pair
-        // Get All Trades VIA REST API
-        // Bithumb does not support historical data
         res.forEach(tradingPair => {
             bithumb.getAllTrades(tradingPair)
         })
-        //Bithumb does not appear to have WS
     })
     .catch(e => console.log(`[BITHUMB] ERROR: ${e.message}`))
 
+/*
+    KRAKEN - REST API + WS
+    Kraken does not provide historical data
+    REST API longpolling every 5 minutes
+    WS receiving trades real-time
+*/
 kraken.getTradingPairs()
     .then(res => {
-        //For Each Trading Pair
-        //Get All Trades VIA REST API
-        //Kraken does not give historical data
-        //REST API does support longpolling
-        //Polls every 5 minutes
         res.forEach(tradingPair => {
             kraken.getAllTrades(tradingPair)
         })
@@ -64,20 +66,24 @@ kraken.getTradingPairs()
     })
     .catch(e => console.log(`[KRAKEN] ERROR: ${e.message}`))
     
-
+/*
+    GEMINI - REST API + WS
+    Gemini only provides 7 days worth of historical data
+    WS receiving trades real-time
+*/
 gemini.getTradingPairs()
     .then(res => {
-        //For Each Trading Pair
-        //Get All Trades VIA REST API
-        //Gemini only provides 7 days worth of historical data
-        // res.forEach(tradingPair => {
-        //     gemini.getAllTrades(tradingPair)
-        // })
-        //Use Gemini WS to keep synced
+        res.forEach(tradingPair => {
+            gemini.getAllTrades(tradingPair)
+        })
         gemini.syncAllTrades(res)
     })
     .catch(e => console.log(`[GEMINI] ERROR: ${e.message}`))
 
+/*
+    BITFLYER - REST API + WS
+    WS receiving trades real-time
+*/
 bitflyer.getTradingPairs()
     .then(res=> {
         res.forEach(tradingPair => {
@@ -87,15 +93,22 @@ bitflyer.getTradingPairs()
     })
     .catch(e => console.log(`[BITFLYER] ERROR: ${e.message}`))
 
+/*
+    ETHFINEX - REST API + WS
+    REST API only allows 30 requests per minute
+    WS receiving trades real-time
+*/
 ethfinex.getTradingPairs()
 .then(res => {
-    //Only 30 requests are allowed per minute
     res.forEach(tradingPair => {
         ethfinex.getAllTrades(tradingPair)
     })
     ethfinex.syncAllTrades(res)
 })
 
+/*
+    LIQUID - REST API + PUSHER
+*/
 liquid.getTradingPairs().then(tradingPairs => {
     tradingPairs.forEach(tradingPair => {
         liquid.getAllTrades(tradingPair)
@@ -105,6 +118,10 @@ liquid.getTradingPairs().then(tradingPairs => {
     liquid.syncAllTrades(tradingPairs)
 })
 
+/*
+    POLONIEX - REST API + WS
+    WS receiving trades real-time
+*/
 poloniex.getTradingPairs()
 .then(tradingPairs => {
     tradingPairs.forEach(tradingPair => {
@@ -113,7 +130,11 @@ poloniex.getTradingPairs()
     poloniex.syncAllTrades(tradingPairs)
 })
 
-//Delay calls .25 seconds to obey by rate limits
+/*
+    IDEX - REST API + WS
+    REST API only allows one request every .25 seconds
+    WS receiving trades real-time
+*/
 idex.getTradingPairs()
 .then(tradingPairs => {
     tradingPairs.forEach(tradingPair => {
