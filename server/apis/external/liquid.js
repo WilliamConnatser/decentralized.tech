@@ -1,6 +1,6 @@
 const SmartAxios = require('../../utility/SmartAxios')
 const liquid = new SmartAxios('liquid')
-const WebSocket = require('ws')
+const Pusher = require('pusher-js/node')
 const objectToQuery = require('../../utility/objectToQuery')
 const tradesApi = require('../db/trades')
 
@@ -113,49 +113,32 @@ function getAllTrades(tradingPair, page = 1) {
 
 //TODO: Implement Pusher... Liquid does not seem to support regular web sockets??
 function syncAllTrades(tradingPairs) {
-    // //Setup WS
-    // const ws = new WebSocket(process.env.LIQUID_WS)
-
-    // //Open WS connection
-    // ws.on(`open`, () => {
-    //     console.log(`Liquid WS Connected at ${process.env.LIQUID_WS}`)
-    //     //Send subscription message
-    //     tradingPairs.forEach(tradingPair => {
-    //         const subscriptionConfig = JSON.stringify({
-    //             type: `subscribe`,
-    //             channels: `executions_cash_${tradingPair.name.toUpperCase()}`
-    //         })
-    //         ws.send(subscriptionConfig);
-    //     })
-    // });
-
-    // //Handle messages received
-    // ws.on('message', (data) => {
-    //     data = JSON.parse(data);
-    //     console.log(data)
-    //     // //If message includes a successful trade
-    //     // if (data.type === 'match') {
-    //     //     //Construct trades row
-    //     //     const trade = {
-    //     //         time: data.time,
-    //     //         trade_id: data.trade_id,
-    //     //         price: data.price,
-    //     //         amount: data.size,
-    //     //         exchange: 'coinbase',
-    //     //         trading_pair: tradingPairs.find(tradingPair => tradingPair.id === data.product_id).display_name
-    //     //     }
-    //     //     //Insert it into the database
-    //     //     tradesApi.insert(trade);
-    //     //     //Update the console with the WS status
-    //     //     if (trade.trade_id % process.env.UPDATE_FREQ === 0)
-    //     //         console.log(`WS ALIVE - Coinbase - ${trade.time}`)
-    //     // }
-    // });
-
-    // //Handle errors
-    // ws.on('error', (error) => {
-    //     console.log(`WebSocket error: ${error}`)
-    // })
+    console.log(`[LIQUID] Connecting to Pusher channels`)
+    tradingPairs.forEach(tradingPair => {
+        const pusherChannel = `executions_cash_${tradingPair.name}`
+        const tapSocket = new Pusher(process.env.LIQUID_PUSHER_KEY, {
+            wsHost: process.env.LIQUID_PUSHER_HOSTNAME
+        })
+    
+        const channel = tapSocket.subscribe(pusherChannel);
+        channel.bind('created', function (data) {
+            const tradeDate = new Date(data.created_at * 1000)
+            //Ocassionally update the console with the WS status
+            if (tradeDate.getTime() % process.env.UPDATE_FREQ === 0)
+                console.log(`[LIQUID] PUSHER ALIVE - ${tradeDate.toISOString()} - ${tradingPair.name}`)
+            tradesApi.insert({
+                time: tradeDate.toISOString(),
+                trade_id: data.id,
+                price: data.price,
+                amount: data.quantity,
+                exchange: 'liquid',
+                trading_pair: tradingPair.name
+            })
+            .catch(err => {
+                if(!err.message.includes('unique')) console.log(err.message, '<< LIQUID PUSHER INSERTION')
+            })
+        })
+    })
 }
 
 module.exports = {
