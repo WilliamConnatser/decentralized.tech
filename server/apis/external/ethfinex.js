@@ -82,6 +82,7 @@ function getAllTrades(tradingPair, end) {
         })
         .catch(err => {
             console.log(err.message, '<< ETHFINEX REST (TRADES)')
+            console.log(err)
         })
     /*
         [

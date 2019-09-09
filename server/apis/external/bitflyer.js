@@ -67,13 +67,14 @@ function getAllTrades(tradingPair, before) {
                         console.log(err.message, '<< BITFLYER REST INSERTION')
                     }
                 })
-            console.log(`[BITFLYER] +${parsedData.length} Trades FROM ${tradingPair}`)
+            console.log(`[BITFLYER] +${parsedData.length} Trades FROM ${tradingPair.name}`)
             //If the response consisted of 100 trades
             //Then recursively get the next 100 trades
-            if (hydratedData.length === 100) {
-                const before = hydratedData[hydratedData.length - 1].trade_id;
+            if (parsedData.length === 100) {
+                const before = parsedData[parsedData.length - 1].trade_id
                 //Todo: No mention of rate limits for this API ???
-                getAllTrades(tradingPair, before)
+                if(tradingPair.name !== 'bchbtc')
+                    getAllTrades(tradingPair, before)
             }
         })
         .catch(err => {
@@ -111,8 +112,8 @@ function syncAllTrades(tradingPairs) {
                 params: {
                     channel: `lightning_executions_${tradingPair.id}`
                 }
-            });
-            ws.send(subscriptionConfig);
+            })
+            ws.send(subscriptionConfig)
         })
     });
 
@@ -136,7 +137,9 @@ function syncAllTrades(tradingPairs) {
             //Insert trade into the database
             tradesApi.insert(trade)
                 .catch(err => {
-                    console.log(err.message, '<< BITFLYER WS INSERTION')
+                    if(!err.message.includes('unique')) {
+                        console.log(err.message, '<< BITFLYER WS INSERTION')
+                    }
                 })
             //Update the console with the WS status
             if (trade.trade_id % process.env.UPDATE_FREQ === 0)

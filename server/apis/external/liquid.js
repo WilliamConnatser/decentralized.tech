@@ -70,9 +70,7 @@ function getAllTrades(tradingPair, page = 1) {
         .then(({data}) => {
             //If there was trades in the response, then continue getting more trades
             if (data.total_pages > data.current_page) {
-                //Delay calls .25 seconds to obey by rate limits
-                //Todo: Enforce rate limits across tradingpairs
-                setTimeout(() => getAllTrades(tradingPair, page+1, 250));
+                getAllTrades(tradingPair, page+1, 250)
             }
             //Add exchange and trading pair data to each object in array of objects
             const parsedTrades = data.models.map(trade => {
@@ -96,6 +94,7 @@ function getAllTrades(tradingPair, page = 1) {
         })
         .catch(err => {
             console.log(err.message, '<< LIQUID REST (TRADES)')
+            console.log(err)
         })
     /*
         [

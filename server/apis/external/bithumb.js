@@ -4,11 +4,6 @@ const objectToQuery = require('../../utility/objectToQuery');
 const tradesApi = require('../db/trades');
 
 function getTradingPairs() {
-    /*
-        Bithumb does not currently have and endpoint to get available trading pairs
-        All of them involve the South Korean Won IE. CYPTO/KRW
-        There are 89 trading pairs as of 7/21/19
-    */
     return bithumb.axios.get('https://api.bithumb.com/public/ticker/all')
         .then(({data}) => {
             const tradingPairs = Object.keys(data.data).map(ticker => ({
@@ -46,7 +41,9 @@ function getAllTrades(tradingPair) {
             //Insert all trades into the database
             tradesApi.insert(tradeData)
                 .catch(err => {
-                    if(!err.message.includes('unique')) console.log(err.message, '<< BITHUMB REST INSERTION')
+                    if(!err.message.includes('unique')) {
+                        console.log(err.message, '<< BITHUMB REST INSERTION')
+                    }
                 })
 
             console.log(`[BITHUMB] +${data.data.length} Trades FROM ${tradingPair.name}`)

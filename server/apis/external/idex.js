@@ -111,84 +111,85 @@ function getAllTrades(tradingPair, cursor=null) {
 // Not sure why, but this is a low volume exchange, so I will leave it for later
 // Another engineering challenge is that there seem to be 640 markets
 // But according to IDEX documentation, you can only subscribe to 100 per connection...
-function syncAllTrades(tradingPairs) {
-    //Setup WS
-    const ws = new WebSocket(process.env.IDEX_WS, {
-        request: 'handshake',
-        payload: JSON.stringify({
-            version: '1.0.0',
-            key: process.env.IDEX_KEY
-        })
-    })
+// function syncAllTrades(tradingPairs) {
+//     //Setup WS
+//     const ws = new WebSocket(process.env.IDEX_WS, {
+//         request: 'handshake',
+//         payload: JSON.stringify({
+//             version: '1.0.0',
+//             key: process.env.IDEX_KEY
+//         })
+//     })
 
-    //Open WS connection
-    ws.on('open', () => {
-        console.log(`IDEX WS Connected at ${process.env.IDEX_WS}`)
-        //Send handshake message when the connection is established
-        //  IDEX will send back a session id (sid) which must be included with every request thereafter
-        const handshake = JSON.stringify({
-            request: 'handshake',
-            payload: {
-                version: '1.0.0',
-                key: process.env.IDEX_KEY
-            }
-        })
-        ws.send(handshake)
-    });
+//     //Open WS connection
+//     ws.on('open', () => {
+//         console.log(`IDEX WS Connected at ${process.env.IDEX_WS}`)
+//         //Send handshake message when the connection is established
+//         //  IDEX will send back a session id (sid) which must be included with every request thereafter
+//         const handshake = JSON.stringify({
+//             request: 'handshake',
+//             payload: {
+//                 version: '1.0.0',
+//                 key: process.env.IDEX_KEY
+//             }
+//         })
+//         ws.send(handshake)
+//     });
 
-    //Handle messages received
-    ws.on('message', (data) => {
-        data = JSON.parse(data)
-        console.log(data)
-        // You can only subscribe to 100 markets at a time...
-        // Subscribe to channels
-        // Send subscription message
-        const tradingPairIds = tradingPairs.map(tradingPair => tradingPair.id)
-        const subscriptionConfig = JSON.stringify({
-            type: 'subscribe',
-            product_ids: tradingPairIds,
-            channels: [{
-                name: 'full',
-                product_ids: tradingPairIds
-            }]
-        })
-        ws.send(subscriptionConfig);
+//     //Handle messages received
+//     ws.on('message', (data) => {
+//         data = JSON.parse(data)
+//         console.log(data)
+//         // You can only subscribe to 100 markets at a time...
+//         // Subscribe to channels
+//         // Send subscription message
+//         const tradingPairIds = tradingPairs.map(tradingPair => tradingPair.id)
+//         const subscriptionConfig = JSON.stringify({
+//             type: 'subscribe',
+//             product_ids: tradingPairIds,
+//             channels: [{
+//                 name: 'full',
+//                 product_ids: tradingPairIds
+//             }]
+//         })
+//         ws.send(subscriptionConfig);
 
-        //Receive trades
-        //If message includes a successful trade
-        if (data.type === 'match') {
-            //Construct trades row
-            const trade = {
-                time: data.time,
-                trade_id: data.trade_id,
-                price: data.price,
-                amount: data.size,
-                exchange: 'coinbase',
-                trading_pair: tradingPairs.find(tradingPair=>tradingPair.id === data.product_id).display_name
-            }
-            //Insert it into the database
-            tradesApi.insert(trade);
-            //Update the console with the WS status
-            if (trade.trade_id % process.env.UPDATE_FREQ === 0)
-                console.log(`WS ALIVE - Coinbase - ${trade.time}`)
-        }
-    })
+//         //Receive trades
+//         //If message includes a successful trade
+//         if (data.type === 'match') {
+//             //Construct trades row
+//             const trade = {
+//                 time: data.time,
+//                 trade_id: data.trade_id,
+//                 price: data.price,
+//                 amount: data.size,
+//                 exchange: 'coinbase',
+//                 trading_pair: tradingPairs.find(tradingPair=>tradingPair.id === data.product_id).display_name
+//             }
+//             //Insert it into the database
+//             tradesApi.insert(trade);
+//             //Update the console with the WS status
+//             if (trade.trade_id % process.env.UPDATE_FREQ === 0)
+//                 console.log(`WS ALIVE - Coinbase - ${trade.time}`)
+//         }
+//     })
 
-    //Handle errors
-    ws.on('error', (error) => {
-        console.log(`WebSocket error: ${error}`,error)
-    })
+//     //Handle errors
+//     ws.on('error', (error) => {
+//         console.log(`WebSocket error: ${error}`,error)
+//     })
 
-    //Handle upgrades
-    ws.on('upgrade', (error) => {
-        error.on('data', res=> console.log('hey',res))
-        error.on('event', res=> console.log('heyyy',res))
-        console.log(`WebSocket upgrade:`)
-    })
-}
+//     //Handle upgrades
+//     //Prob not needed- being used for troubleshooting
+//     ws.on('upgrade', (error) => {
+//         error.on('data', res=> console.log('hey',res))
+//         error.on('event', res=> console.log('heyyy',res))
+//         console.log(`WebSocket upgrade:`)
+//     })
+// }
 
 module.exports = {
     getTradingPairs,
     getAllTrades,
-    syncAllTrades
+    // syncAllTrades
 }

@@ -5,7 +5,6 @@ class SmartAxios {
     constructor(exchange) {
         this.exchange = exchange
         this.axios = axios.create()
-        this._cooldown = null
         this.queue = []
         this.headers = {}
         this.rateLimit = 0
@@ -21,16 +20,24 @@ class SmartAxios {
                 this.rateLimit = .015
                 break
             case 'ethfinex':
-                this.rateLimit = .5
+                this.rateLimit = 3
                 break
             case 'idex':
                 this.rateLimit = .25
                 break
+            case 'liquid':
+                this.rateLimit = 1.25
+                break
             default:
                 this.rateLimit = 1
+
+            //Use the rateLimit to set the initial cooldown
+            //Only really necessary in development to ensure rate limits are enforced when the server is restarted
+            this.cooldown = new Date().getTime() + this.rateLimit * 1000
         }
 
         // Add a request interceptor which pushes request to the queue
+        // The request queue is what is used to store requests when the rate limit is triggered
         this.axios.interceptors.request.use((config) => {
             var res
             const promise = new Promise((resolve) => {
@@ -44,41 +51,26 @@ class SmartAxios {
             return promise
         }, (error) => {
             return Promise.reject(error.message);
-        });
+        })
 
+        //Update the rate limit cooldown after each request response is received
         this.axios.interceptors.response.use((response) => {
-            this._cooldown = new Date(new Date().getTime() + 1000 * this.rateLimit);
+            this.cooldown = new Date(new Date().getTime() + 1000 * this.rateLimit);
             if (this.queue.length > 0) {
                 this.shift();
             }
             return response;
         }, (error) => {
-            console.log(error.message)
             return Promise.reject(error);
-        });
+        })
     }
 
-    // On initialization it gets cooldown timestamp from the hard drive
-    // Each time cooldown is set, it writes the current cooldown timestamp to the hard drive
-    set cooldown(date) {
-        if(!date) {
-            try {
-                if(!this.cooldown) {
-                    const newDate = fs.readFileSync(`./utility/cooldowns/${this.exchange}`, 'utf8')
-                    this.cooldown = new Date(newDate)
-                }
-            } catch(e) {
-                this.cooldown = new Date()
-            }
-        } else {
-            this.cooldown = date
-        }
-        fs.writeFileSync(`./utility/cooldowns/${this.exchange}`, this.cooldown.getTime())
-    }
-
+    //The controller for the request queue
+    //If the rate limit has not been triggered then it immediately sends the request
+    //Otherwise, it waits for the rate limit to pass before shifting a request off the queue and sending it
     shift() {
         const currentDate = new Date().getTime()
-        let difference = this._cooldown - currentDate
+        let difference = this.cooldown - currentDate
         if (difference < 0) difference = 0
         setTimeout(() => {
             const {promise,config} = this.queue.shift()
