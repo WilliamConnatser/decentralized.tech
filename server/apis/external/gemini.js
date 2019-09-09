@@ -75,7 +75,7 @@ function getAllTrades(tradingPair, timestamp) {
                 //Requests are rate limited by 1 second in SmartAxios
                 getAllTrades(tradingPair, timestamp)
             }
-            console.log(`[BITSTAMP] +${parsedTrades.length} Trades FROM ${tradingPair}`)
+            //console.log(`[BITSTAMP] +${parsedTrades.length} Trades FROM ${tradingPair}`)
         })
         .catch(err => {
             if(!err.message.includes('before the earliest available historical date')) {
@@ -104,7 +104,7 @@ function syncAllTrades(tradingPairs) {
         const ws = new WebSocket(`${process.env.GEMINI_WS}${tradingPair}${queryParams}`)
         //Open WS connection
         ws.on('open', () => {
-            console.log(`[GEMINI] WS Connected at ${process.env.GEMINI_WS}${tradingPair}${queryParams}`)
+            //console.log(`[GEMINI] WS Connected at ${process.env.GEMINI_WS}${tradingPair}${queryParams}`)
             //No need for a subscription message
             //Settings are handled via the WS path and query params
         });
@@ -130,7 +130,7 @@ function syncAllTrades(tradingPairs) {
                 })
             //Update the console with the WS status
             if (data.timestampms % process.env.UPDATE_FREQ === 0) {
-                console.log(`[GEMINI] WS ALIVE - ${new Date(data.timestampms)} - ${tradingPair}`)
+                //console.log(`[GEMINI] WS ALIVE - ${new Date(data.timestampms)} - ${tradingPair}`)
             }
         });    
         //Handle errors

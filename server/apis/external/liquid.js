@@ -90,7 +90,7 @@ function getAllTrades(tradingPair, page = 1) {
                         console.log(err.message, '<< LIQUID REST INSERTION')
                     }
                 })
-            console.log(`[LIQUID] +${parsedTrades.length} Trades FROM ${tradingPair.name}`)
+            //console.log(`[LIQUID] +${parsedTrades.length} Trades FROM ${tradingPair.name}`)
         })
         .catch(err => {
             console.log(err.message, '<< LIQUID REST (TRADES)')
@@ -112,7 +112,7 @@ function getAllTrades(tradingPair, page = 1) {
 
 //TODO: Implement Pusher... Liquid does not seem to support regular web sockets??
 function syncAllTrades(tradingPairs) {
-    console.log(`[LIQUID] Connecting to Pusher channels`)
+    //console.log(`[LIQUID] Connecting to Pusher channels`)
     tradingPairs.forEach(tradingPair => {
         const pusherChannel = `executions_cash_${tradingPair.name}`
         const tapSocket = new Pusher(process.env.LIQUID_PUSHER_KEY, {
@@ -124,7 +124,7 @@ function syncAllTrades(tradingPairs) {
             const tradeDate = new Date(data.created_at * 1000)
             //Ocassionally update the console with the WS status
             if (tradeDate.getTime() % process.env.UPDATE_FREQ === 0)
-                console.log(`[LIQUID] PUSHER ALIVE - ${tradeDate.toISOString()} - ${tradingPair.name}`)
+                //console.log(`[LIQUID] PUSHER ALIVE - ${tradeDate.toISOString()} - ${tradingPair.name}`)
             tradesApi.insert({
                 time: tradeDate.toISOString(),
                 trade_id: data.id,

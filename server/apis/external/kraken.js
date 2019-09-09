@@ -57,7 +57,7 @@ function getAllTrades(tradingPair, since=null) {
                 .catch(err => {
                     if(!err.message.includes('unique')) console.log(err.message, '<< KRAKEN REST')
                 })
-            console.log(`[KRAKEN] +${tradeData.length} Trades FROM ${tradingPair.name} (since = ${since})`)
+            //console.log(`[KRAKEN] +${tradeData.length} Trades FROM ${tradingPair.name} (since = ${since})`)
         })
         .catch(err => {
             console.log(err)
@@ -85,7 +85,7 @@ function syncAllTrades(tradingPairs) {
 
     //Open WS connection
     ws.on('open', () => {
-        console.log(`[KRAKEN] WS Connected At ${process.env.KRAKEN_WS}`)
+        //console.log(`[KRAKEN] WS Connected At ${process.env.KRAKEN_WS}`)
         //Send subscription message
         const tradingPairIds = tradingPairs.map(tradingPair => tradingPair.ws)
         const subscriptionConfig = JSON.stringify({
@@ -107,7 +107,7 @@ function syncAllTrades(tradingPairs) {
                 const tradeDate = new Date(Number(trade[2]))
                 //Ocassionally update the console with the WS status
                 if (tradeDate.getTime() % process.env.UPDATE_FREQ === 0)
-                    console.log(`[KRAKEN] WS ALIVE - ${tradeDate.toISOString()} - ${channelLookup[data[0]]}`)
+                    //console.log(`[KRAKEN] WS ALIVE - ${tradeDate.toISOString()} - ${channelLookup[data[0]]}`)
                 //Parse trade data
                 return {
                     time: tradeDate.toISOString(),
@@ -120,7 +120,7 @@ function syncAllTrades(tradingPairs) {
             //Insert the parsed trades into the database
             tradesApi.insert(tradeData)
                 .catch(err => {
-                    if(!err.message.includes('unique')) console.log(err.message, '<< KRAKEN WS')
+                    if(!err.message.includes('unique')) console.log(err.message, '<< KRAKEN WS (INSERTION)')
                 })
 
         } else {
@@ -132,7 +132,7 @@ function syncAllTrades(tradingPairs) {
 
     //Handle errors
     ws.on('error', (error) => {
-        console.log(`WebSocket error: ${error}`)
+        console.log(error.message, '<< KRAKEN WS')
     })
 }
 

@@ -43,8 +43,9 @@ function getTradingPairs() {
 
 function getAllTrades(tradingPair, end=Date.now()) {
     //Notify console API is alive
-    if (end % process.env.UPDATE_FREQ === 0)
-        console.log(`API ALIVE - Poloniex - ${tradingPair.name}`)
+    if (end % process.env.UPDATE_FREQ === 0) {
+        //console.log(`API ALIVE - Poloniex - ${tradingPair.name}`)
+    }
     //Get Poloniex trades for a specific trading pair
     //Use the last before in the response to get older transactions
     const queryParams = {
@@ -74,7 +75,7 @@ function getAllTrades(tradingPair, end=Date.now()) {
                         console.log(err.message, '<< POLONIEX REST INSERTION')
                     }
                 })
-            console.log(`[POLONIEX] +${parsedTrades.length} Trades FROM ${tradingPair.name}`)
+            //console.log(`[POLONIEX] +${parsedTrades.length} Trades FROM ${tradingPair.name}`)
             // If the response consisted of trades
             // Then recursively get the next trades
             if (parsedTrades.length > 0) {
@@ -107,7 +108,7 @@ function syncAllTrades(tradingPairs) {
 
     //Open WS connection
     ws.on('open', () => {
-        console.log(`Poloniex WS Connected at ${process.env.POLONIEX_WS}`)
+        //console.log(`Poloniex WS Connected at ${process.env.POLONIEX_WS}`)
         //Send subscription message for each trading pair
         tradingPairs.forEach(tradingPair => {
             const subscriptionConfig = JSON.stringify({
@@ -131,7 +132,7 @@ function syncAllTrades(tradingPairs) {
             //Construct trade row
             const trade = {
                 time: new Date(tradeData[5]).toISOString(),
-                trade_id: Number(tradeData[1]),
+                trade_id: tradeData[1],
                 price: tradeData[3],
                 amount: tradeData[4],
                 exchange: 'poloniex',
@@ -140,22 +141,16 @@ function syncAllTrades(tradingPairs) {
             //Insert trade into the database
             tradesApi.insert(trade)
                 .catch(err => {
-                    console.log(err.message, '<< POLONIEX WS INSERTION')
+                    if(!err.message.includes('unique')) {
+                        console.log(err.message, '<< POLONIEX WS INSERTION')
+                    }
                 })
             //Update the console with the WS status
-            if (trade.trade_id % process.env.UPDATE_FREQ === 0)
-                console.log(`WS ALIVE - Poloniex - ${tradingPairId.name} - ${tradeData.exec_date}`)
+            if (trade.trade_id % process.env.UPDATE_FREQ === 0) {
+                //console.log(`WS ALIVE - Poloniex - ${tradingPairId.name} - ${tradeData.exec_date}`)
+            }
         }
     });
-    // Example message:
-    // [
-    //     't',
-    //     '65439',
-    //     1,
-    //     '0.00060012',
-    //     '33.38831300',
-    //     1567312220
-    // ]
 
     //Handle errors
     ws.on('error', (error) => {

@@ -75,7 +75,7 @@ function getAllTrades(tradingPair, cursor=null) {
                         console.log(err.message, '<< IDEX REST INSERTION')
                     }
                 })
-            console.log(`[IDEX] +${parsedTrades.length} Trades FROM ${tradingPair.name}`)
+            //console.log(`[IDEX] +${parsedTrades.length} Trades FROM ${tradingPair.name}`)
         })
         .catch(err => {
             console.log(err.message, '<< IDEX REST (TRADES)')

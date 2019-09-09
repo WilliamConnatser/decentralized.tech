@@ -78,7 +78,7 @@ function getAllTrades(tradingPair, end) {
                         console.log(err.message, '<< ETHFINEX REST INSERTION')
                     }
                 })
-            console.log(`[ETHFINEX] +${parsedData.length} Trades FROM ${tradingPair.name}`)
+            //console.log(`[ETHFINEX] +${parsedData.length} Trades FROM ${tradingPair.name}`)
         })
         .catch(err => {
             console.log(err.message, '<< ETHFINEX REST (TRADES)')
@@ -105,7 +105,7 @@ function syncAllTrades(tradingPairs) {
 
     //Open WS connection
     ws.on('open', () => {
-        console.log(`EthFinex WS Connected at ${process.env.ETHFINEX_WS}`)
+        //console.log(`EthFinex WS Connected at ${process.env.ETHFINEX_WS}`)
         //Send subscription messages for each trading pair
         tradingPairs.forEach((tradingPair,i) => {
             setTimeout(() => {

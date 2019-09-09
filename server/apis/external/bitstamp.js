@@ -58,7 +58,7 @@ function getAllTrades(tradingPair) {
                 .catch(err => {
                     if(!err.message.includes('unique')) console.log(err.message, '<< BITSTAMP REST INSERTION')
                 })
-            console.log(`[BITSTAMP] +${res.data.length} Trades FROM ${tradingPair.id}`)
+            //console.log(`[BITSTAMP] +${res.data.length} Trades FROM ${tradingPair.id}`)
         })
         .catch(err => {
             console.log(err.message, '<< BITSTAMP REST (TRADES)')
@@ -84,7 +84,7 @@ function syncAllTrades(tradingPairs) {
 
     //Open WS connection
     ws.on('open', () => {
-        console.log(`[BITSTAMP] - WS Connected at ${process.env.BITSTAMP_WS}`)
+        //console.log(`[BITSTAMP] - WS Connected at ${process.env.BITSTAMP_WS}`)
         //Send subscription message for each trading pair
         tradingPairIds.forEach(tradingPair => {
             const subscriptionConfig = JSON.stringify({
@@ -117,11 +117,12 @@ function syncAllTrades(tradingPairs) {
             //Insert trade into the database
             tradesApi.insert(trade)
                 .catch(err => {
-                    if(!err.message.includes('unique')) console.log(err.message, '<< BITSTAMP WS INSERTION')
+                    if (!err.message.includes('unique')) console.log(err.message, '<< BITSTAMP WS INSERTION')
                 })
             //Update the console with the WS status
-            if (trade.trade_id % process.env.UPDATE_FREQ === 0)
-                console.log(`[BITSTAMP] - WS ALIVE - ${id} - ${new Date(tradeData.timestamp * 1000).toISOString()}`)
+            if (trade.trade_id % process.env.UPDATE_FREQ === 0) {
+                //console.log(`[BITSTAMP] - WS ALIVE - ${id} - ${new Date(tradeData.timestamp * 1000).toISOString()}`)
+            }
         }
         //If the WS server is going down for maintenance
         else if (data.event == 'bts-request_reconnect') {

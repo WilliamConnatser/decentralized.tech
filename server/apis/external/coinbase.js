@@ -78,7 +78,7 @@ function getAllTrades(tradingPair, cbAfter=null) {
                 .catch(err => {
                     if(!err.message.includes('unique')) console.log(err.message, '<< COINBASE REST INSERTION')
                 })
-            console.log(`[COINBASE] +${res.data.length} Trades FROM ${tradingPair.name} (cbAfter = ${cbAfter})`)
+            //console.log(`[COINBASE] +${res.data.length} Trades FROM ${tradingPair.name} (cbAfter = ${cbAfter})`)
         })
         .catch(err => {
             console.log(err.message, '<< COINBASE REST (TRADES)')
@@ -103,7 +103,7 @@ function syncAllTrades(tradingPairs) {
 
     //Open WS connection
     ws.on('open', () => {
-        console.log(`[COINBASE] WS Connected at ${process.env.COINBASE_WS}`)
+        //console.log(`[COINBASE] WS Connected at ${process.env.COINBASE_WS}`)
         //Send subscription message
         const tradingPairIds = tradingPairs.map(tradingPair => tradingPair.id)
         const subscriptionConfig = JSON.stringify({
@@ -138,8 +138,9 @@ function syncAllTrades(tradingPairs) {
                     if(!err.message.includes('unique')) console.log(err.message, '<< COINBASE WS INSERTION')
                 })
             //Update the console with the WS status
-            if (trade.trade_id % process.env.UPDATE_FREQ === 0)
-                console.log(`[COINBASE] WS ALIVE - ${trade.time} - ${tradingPair}`)
+            if (trade.trade_id % process.env.UPDATE_FREQ === 0) {
+                //console.log(`[COINBASE] WS ALIVE - ${trade.time} - ${tradingPair}`)
+            }
         }
     });
 

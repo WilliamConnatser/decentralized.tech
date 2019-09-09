@@ -67,7 +67,7 @@ function getAllTrades(tradingPair, before) {
                         console.log(err.message, '<< BITFLYER REST INSERTION')
                     }
                 })
-            console.log(`[BITFLYER] +${parsedData.length} Trades FROM ${tradingPair.name}`)
+            //console.log(`[BITFLYER] +${parsedData.length} Trades FROM ${tradingPair.name}`)
             //If the response consisted of 100 trades
             //Then recursively get the next 100 trades
             if (parsedData.length === 100) {
@@ -104,7 +104,7 @@ function syncAllTrades(tradingPairs) {
 
     //Open WS connection
     ws.on('open', () => {
-        console.log(`BitFlyer WS Connected at ${process.env.BITFLYER_WS}`)
+        //console.log(`BitFlyer WS Connected at ${process.env.BITFLYER_WS}`)
         //Send subscription message for each trading pair
         tradingPairs.forEach(tradingPair => {
             const subscriptionConfig = JSON.stringify({
@@ -142,8 +142,9 @@ function syncAllTrades(tradingPairs) {
                     }
                 })
             //Update the console with the WS status
-            if (trade.trade_id % process.env.UPDATE_FREQ === 0)
-                console.log(`WS ALIVE - Bitflyer - ${tradingPairId} - ${tradeData.exec_date}`)
+            if (trade.trade_id % process.env.UPDATE_FREQ === 0) {
+                //console.log(`WS ALIVE - Bitflyer - ${tradingPairId} - ${tradeData.exec_date}`)
+            }
         }
     });
     // Example message:

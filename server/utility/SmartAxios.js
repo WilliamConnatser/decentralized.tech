@@ -28,6 +28,9 @@ class SmartAxios {
             case 'liquid':
                 this.rateLimit = 1.25
                 break
+            case 'poloniex':
+                this.rateLimit = .175
+                break
             default:
                 this.rateLimit = 1
 

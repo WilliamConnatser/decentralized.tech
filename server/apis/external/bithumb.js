@@ -46,7 +46,7 @@ function getAllTrades(tradingPair) {
                     }
                 })
 
-            console.log(`[BITHUMB] +${data.data.length} Trades FROM ${tradingPair.name}`)
+            //console.log(`[BITHUMB] +${data.data.length} Trades FROM ${tradingPair.name}`)
         })
         .catch(err => {
             console.log(err.message, '<< BITHUMB REST (TRADES)')
