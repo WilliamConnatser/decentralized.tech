@@ -1,28 +1,28 @@
 {
-  "name": "server",
-  "version": "1.0.0",
-  "description": "",
-  "main": "index.js",
-  "scripts": {
-    "db_start": "docker run --rm --name postgres_dev -d -p 6000:5432 postgres",
-    "db_reset": "npx knex migrate:rollback && npx knex migrate:latest",
-    "db_stop": "docker container stop postgres_dev",
-    "dev": "npx cross-env NODE_ENV=development nodemon --http-parser=legacy index.js"
-  },
-  "author": "",
-  "license": "MIT",
-  "dependencies": {
-    "axios": "^0.19.0",
-    "cross-env": "^5.2.0",
-    "dotenv": "^8.0.0",
-    "eslint-config-prettier": "^6.2.0",
-    "express": "^4.17.1",
-    "jsonwebtoken": "^8.5.1",
-    "knex": "^0.19.0",
-    "nodemon": "^1.19.1",
-    "npx": "^10.2.0",
-    "pg": "^7.11.0",
-    "pusher-js": "^5.0.1",
-    "ws": "^7.1.1"
-  }
+   "name": "server",
+   "version": "1.0.0",
+   "description": "",
+   "main": "index.js",
+   "scripts": {
+      "db_start": "docker run --rm --name postgres_dev -d -p 6000:5432 postgres",
+      "db_reset": "npx knex migrate:rollback && npx knex migrate:latest",
+      "db_stop": "docker container stop postgres_dev",
+      "dev": "npx cross-env NODE_ENV=development nodemon --http-parser=legacy index.js"
+   },
+   "author": "",
+   "license": "MIT",
+   "dependencies": {
+      "axios": "^0.19.0",
+      "cross-env": "^5.2.0",
+      "dotenv": "^8.0.0",
+      "eslint-config-prettier": "^6.2.0",
+      "express": "^4.17.1",
+      "jsonwebtoken": "^8.5.1",
+      "knex": "^0.19.0",
+      "nodemon": "^1.19.1",
+      "npx": "^10.2.0",
+      "pg": "^7.11.0",
+      "pusher-js": "^5.0.1",
+      "ws": "^7.1.1"
+   }
 }

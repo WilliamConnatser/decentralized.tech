@@ -5,22 +5,25 @@ const objectToQuery = require('../../utility/objectToQuery')
 const tradesApi = require('../db/trades')
 
 function getTradingPairs() {
-    //Get Liquid trading pairs
-    //The id property can be used in API requests
-    return liquid.axios.get(`${process.env.LIQUID_REST}/products`)
-        .then(res => {
-            //Filter and parse response
-            const parsedPairs = res.data.filter(tradingPair => !tradingPair.disabled)
-                .map(tradingPair => ({
-                    id: tradingPair.id,
-                    name: tradingPair.currency_pair_code.toLowerCase()
-                }))
-            return parsedPairs
-        })
-        .catch(err => {
-            console.log(err.message, '<< LIQUID REST (TRADING PAIRS)')
-        })
-    /* Response:
+   //Get Liquid trading pairs
+   //The id property can be used in API requests
+   return liquid.axios
+      .get(`${process.env.LIQUID_REST}/products`)
+      .then((res) => {
+         //Filter and parse response
+         const parsedPairs = res.data
+            .filter((tradingPair) => !tradingPair.disabled)
+            .map((tradingPair) => ({
+               id: tradingPair.id,
+               name: tradingPair.currency_pair_code.toLowerCase(),
+            }))
+         return parsedPairs
+      })
+      .catch((err) => {
+         console.log(err)
+         console.log(err.message, '<< LIQUID REST (TRADING PAIRS)')
+      })
+   /* Response:
         [
             {
                 id: '293',
@@ -58,45 +61,46 @@ function getTradingPairs() {
 }
 
 function getAllTrades(tradingPair, page = 1) {
-    //Construct query parameters
-    const queryParam = objectToQuery({
-        product_id: tradingPair.id,
-        page,
-        limit: 1000
-    })
+   //Construct query parameters
+   const queryParam = objectToQuery({
+      product_id: tradingPair.id,
+      page,
+      limit: 1000,
+   })
 
-    //Get Liquid trades for a specific trading pair ID
-    liquid.axios.get(`${process.env.LIQUID_REST}/executions${queryParam}`)
-        .then(({data}) => {
-            //If there was trades in the response, then continue getting more trades
-            if (data.total_pages > data.current_page) {
-                getAllTrades(tradingPair, page+1, 250)
+   //Get Liquid trades for a specific trading pair ID
+   liquid.axios
+      .get(`${process.env.LIQUID_REST}/executions${queryParam}`)
+      .then(({ data }) => {
+         //If there was trades in the response, then continue getting more trades
+         if (data.total_pages > data.current_page) {
+            getAllTrades(tradingPair, page + 1, 250)
+         }
+         //Add exchange and trading pair data to each object in array of objects
+         const parsedTrades = data.models.map((trade) => {
+            return {
+               time: new Date(trade.created_at * 1000).toISOString(),
+               trade_id: trade.id,
+               price: trade.price,
+               amount: trade.quantity,
+               exchange: 'liquid',
+               trading_pair: tradingPair.name,
             }
-            //Add exchange and trading pair data to each object in array of objects
-            const parsedTrades = data.models.map(trade => {
-                return {
-                    time: new Date(trade.created_at * 1000).toISOString(),
-                    trade_id: trade.id,
-                    price: trade.price,
-                    amount: trade.quantity,
-                    exchange: 'liquid',
-                    trading_pair: tradingPair.name
-                }
-            })
-            //Insert parsed trades into the database
-            tradesApi.insert(parsedTrades)
-                .catch(err => {
-                    if(!err.message.includes('unique')) {
-                        console.log(err.message, '<< LIQUID REST INSERTION')
-                    }
-                })
-            //console.log(`[LIQUID] +${parsedTrades.length} Trades FROM ${tradingPair.name}`)
-        })
-        .catch(err => {
-            console.log(err.message, '<< LIQUID REST (TRADES)')
-            console.log(err)
-        })
-    /*
+         })
+         //Insert parsed trades into the database
+         tradesApi.insert(parsedTrades).catch((err) => {
+            if (!err.message.includes('unique')) {
+               console.log(err)
+               console.log(err.message, '<< LIQUID REST INSERTION')
+            }
+         })
+         //console.log(`[LIQUID] +${parsedTrades.length} Trades FROM ${tradingPair.name}`)
+      })
+      .catch((err) => {
+         console.log(err)
+         console.log(err.message, '<< LIQUID REST (TRADES)')
+      })
+   /*
         [
             {
                 time: '2019-07-15T03:05:17.697Z',
@@ -112,36 +116,40 @@ function getAllTrades(tradingPair, page = 1) {
 
 //TODO: Implement Pusher... Liquid does not seem to support regular web sockets??
 function syncAllTrades(tradingPairs) {
-    //console.log(`[LIQUID] Connecting to Pusher channels`)
-    tradingPairs.forEach(tradingPair => {
-        const pusherChannel = `executions_cash_${tradingPair.name}`
-        const tapSocket = new Pusher(process.env.LIQUID_PUSHER_KEY, {
-            wsHost: process.env.LIQUID_PUSHER_HOSTNAME
-        })
-    
-        const channel = tapSocket.subscribe(pusherChannel);
-        channel.bind('created', function (data) {
-            const tradeDate = new Date(data.created_at * 1000)
-            //Ocassionally update the console with the WS status
-            if (tradeDate.getTime() % process.env.UPDATE_FREQ === 0)
-                //console.log(`[LIQUID] PUSHER ALIVE - ${tradeDate.toISOString()} - ${tradingPair.name}`)
-            tradesApi.insert({
-                time: tradeDate.toISOString(),
-                trade_id: data.id,
-                price: data.price,
-                amount: data.quantity,
-                exchange: 'liquid',
-                trading_pair: tradingPair.name
-            })
-            .catch(err => {
-                if(!err.message.includes('unique')) console.log(err.message, '<< LIQUID PUSHER INSERTION')
-            })
-        })
-    })
+   //console.log(`[LIQUID] Connecting to Pusher channels`)
+   tradingPairs.forEach((tradingPair) => {
+      const pusherChannel = `executions_cash_${tradingPair.name}`
+      const tapSocket = new Pusher(process.env.LIQUID_PUSHER_KEY, {
+         wsHost: process.env.LIQUID_PUSHER_HOSTNAME,
+      })
+
+      const channel = tapSocket.subscribe(pusherChannel)
+      channel.bind('created', function(data) {
+         const tradeDate = new Date(data.created_at * 1000)
+         //Ocassionally update the console with the WS status
+         if (tradeDate.getTime() % process.env.UPDATE_FREQ === 0)
+            //console.log(`[LIQUID] PUSHER ALIVE - ${tradeDate.toISOString()} - ${tradingPair.name}`)
+            tradesApi
+               .insert({
+                  time: tradeDate.toISOString(),
+                  trade_id: data.id,
+                  price: data.price,
+                  amount: data.quantity,
+                  exchange: 'liquid',
+                  trading_pair: tradingPair.name,
+               })
+               .catch((err) => {
+                  if (!err.message.includes('unique')) {
+                     console.log(err)
+                     console.log(err.message, '<< LIQUID PUSHER INSERTION')
+                  }
+               })
+      })
+   })
 }
 
 module.exports = {
-    getTradingPairs,
-    getAllTrades,
-    syncAllTrades
+   getTradingPairs,
+   getAllTrades,
+   syncAllTrades,
 }

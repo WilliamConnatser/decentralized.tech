@@ -1,28 +1,33 @@
 const SmartAxios = require('../../utility/SmartAxios')
 const idex = new SmartAxios('idex')
-const WebSocket = require('ws');
-const objectToQuery = require('../../utility/objectToQuery');
-const tradesApi = require('../db/trades');
+const WebSocket = require('ws')
+const objectToQuery = require('../../utility/objectToQuery')
+const tradesApi = require('../db/trades')
 
 function getTradingPairs() {
-
-    //Get IDEX trading pairs
-    //The id property can be used in API requests
-    return idex.axios.get(`${process.env.IDEX_REST}/returnTicker`)
-        .then(res => {
-            //Parse response
-            return Object.keys(res.data).map(key => ({
-                id: key,
-                //IDEX has the base pair as first ticker in market pair
-                //Almost (all?) other exchanges list base pair second
-                //So here we normalize the ticker
-                name: key.toLowerCase().split('_').reverse().join('')
-            }));
-        })
-        .catch(err => {
-            console.log(err.message, '<< IDEX REST (TRADING PAIR)')
-        })
-    /* Response:
+   //Get IDEX trading pairs
+   //The id property can be used in API requests
+   return idex.axios
+      .get(`${process.env.IDEX_REST}/returnTicker`)
+      .then((res) => {
+         //Parse response
+         return Object.keys(res.data).map((key) => ({
+            id: key,
+            //IDEX has the base pair as first ticker in market pair
+            //Almost (all?) other exchanges list base pair second
+            //So here we normalize the ticker
+            name: key
+               .toLowerCase()
+               .split('_')
+               .reverse()
+               .join(''),
+         }))
+      })
+      .catch((err) => {
+         console.log(err)
+         console.log(err.message, '<< IDEX REST (TRADING PAIR)')
+      })
+   /* Response:
     {
         TUSD_ETH: {
             last: '170.163150941',
@@ -39,48 +44,50 @@ function getTradingPairs() {
     */
 }
 
-function getAllTrades(tradingPair, cursor=null) {
-    //Construct query parameters
-    let queryBody = {
-        market: tradingPair.id,
-        count: 100
-    }
-    //Add cursor to get paginated data
-    if (cursor) {
-        queryBody.cursor = cursor
-    }
-    //Get IDEX trades for a specific trading pair ID
-    idex.axios.post(`${process.env.IDEX_REST}/returnTradeHistory`, queryBody)
-        .then(res => {
-            //The header containers a idex-next-cursor property which can be used to get data
-            //Which comes before the data included in this request via the before param
-            if (res.headers['idex-next-cursor']) {
-                getAllTrades(tradingPair, res.headers['idex-next-cursor'])
+function getAllTrades(tradingPair, cursor = null) {
+   //Construct query parameters
+   let queryBody = {
+      market: tradingPair.id,
+      count: 100,
+   }
+   //Add cursor to get paginated data
+   if (cursor) {
+      queryBody.cursor = cursor
+   }
+   //Get IDEX trades for a specific trading pair ID
+   idex.axios
+      .post(`${process.env.IDEX_REST}/returnTradeHistory`, queryBody)
+      .then((res) => {
+         //The header containers a idex-next-cursor property which can be used to get data
+         //Which comes before the data included in this request via the before param
+         if (res.headers['idex-next-cursor']) {
+            getAllTrades(tradingPair, res.headers['idex-next-cursor'])
+         }
+         //Add exchange and trading pair data to each object in array of objects
+         const parsedTrades = res.data.map((trade) => {
+            return {
+               time: new Date(trade.timestamp * 1000),
+               trade_id: trade.tid,
+               price: Number(trade.price),
+               amount: Number(trade.total),
+               exchange: 'idex',
+               trading_pair: tradingPair.name,
             }
-            //Add exchange and trading pair data to each object in array of objects
-            const parsedTrades = res.data.map(trade => {
-                return {
-                    time: new Date(trade.timestamp*1000),
-                    trade_id: trade.tid,
-                    price: Number(trade.price),
-                    amount: Number(trade.total),
-                    exchange: 'idex',
-                    trading_pair: tradingPair.name
-                }
-            })
-            //Insert it into the database
-            tradesApi.insert(parsedTrades)
-                .catch(err => {
-                    if(!err.message.includes('unique')) {
-                        console.log(err.message, '<< IDEX REST INSERTION')
-                    }
-                })
-            //console.log(`[IDEX] +${parsedTrades.length} Trades FROM ${tradingPair.name}`)
-        })
-        .catch(err => {
-            console.log(err.message, '<< IDEX REST (TRADES)')
-        })
-    /*
+         })
+         //Insert it into the database
+         tradesApi.insert(parsedTrades).catch((err) => {
+            if (!err.message.includes('unique')) {
+               console.log(err)
+               console.log(err.message, '<< IDEX REST INSERTION')
+            }
+         })
+         //console.log(`[IDEX] +${parsedTrades.length} Trades FROM ${tradingPair.name}`)
+      })
+      .catch((err) => {
+         console.log(err)
+         console.log(err.message, '<< IDEX REST (TRADES)')
+      })
+   /*
         [
             {
                 type: 'buy',
@@ -189,7 +196,7 @@ function getAllTrades(tradingPair, cursor=null) {
 // }
 
 module.exports = {
-    getTradingPairs,
-    getAllTrades,
-    // syncAllTrades
+   getTradingPairs,
+   getAllTrades,
+   // syncAllTrades
 }
