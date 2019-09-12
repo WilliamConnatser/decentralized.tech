@@ -15,7 +15,8 @@ function getTradingPairs() {
                id: tradingPair,
                name: res.data.result[tradingPair].altname
                   .replace('.d', '')
-                  .toLowerCase(),
+                  .toLowerCase()
+                  .replace('xbt','btc'),
                ws: res.data.result[tradingPair].wsname,
             }
          })

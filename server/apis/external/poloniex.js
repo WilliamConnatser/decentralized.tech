@@ -13,7 +13,7 @@ function getTradingPairs() {
          //Parse trading pairs
          const tradingPairs = Object.keys(res.data).map((tradingPair) => ({
             id: tradingPair,
-            name: tradingPair.replace('_', '').toLowerCase(),
+            name: tradingPair.split('_').reverse().join('').toLowerCase(),
             wsId: res.data[tradingPair].id,
          }))
          return tradingPairs

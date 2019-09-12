@@ -29,9 +29,26 @@ function getMany(filter = {}, orderBy = ['time', 'desc']) {
       .orderBy(...orderBy)
 }
 
+//Get unique trading pairs
+function getUniquePairs() {
+   return db('trades')
+      .distinct()
+      .pluck('trading_pair')
+}
+
+//Get all exchanges which have a certain trading pair
+function getExchangesByTP(trading_pair) {
+   return db('trades')
+      .where({trading_pair})
+      .distinct()
+      .pluck('exchange')
+}
+
 module.exports = {
    insert,
    insertMany,
    getOne,
    getMany,
+   getUniquePairs,
+   getExchangesByTP
 }
