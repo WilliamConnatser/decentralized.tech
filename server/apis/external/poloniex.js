@@ -1,26 +1,31 @@
-const SmartAxios = require('../../utility/SmartAxios')
-const poloniex = new SmartAxios('poloniex')
+const requestQueue = require('../../utility/requestQueue')
+const axios = requestQueue('poloniex')
 const WebSocket = require('ws')
 const objectToQuery = require('../../utility/objectToQuery')
+const insertionBatcher = require('../../utility/insertionBatcher')
 const tradesApi = require('../db/trades')
 
 function getTradingPairs() {
    //Get Poloniex trading pairs
    //The product_code property can be used to get trading-pair-specific trades
-   return poloniex.axios
+   return axios
       .get(`${process.env.POLONIEX_REST}?command=returnTicker`)
       .then((res) => {
          //Parse trading pairs
          const tradingPairs = Object.keys(res.data).map((tradingPair) => ({
             id: tradingPair,
-            name: tradingPair.split('_').reverse().join('').toLowerCase(),
+            name: tradingPair
+               .split('_')
+               .reverse()
+               .join('')
+               .toLowerCase(),
             wsId: res.data[tradingPair].id,
          }))
          return tradingPairs
       })
       .catch((err) => {
          console.log(err)
-         console.log(err.message, '<< POLONIEX REST (TRADING PAIR)')
+         console.log(err.message, '\n^^ POLONIEX REST (TRADING PAIR)')
       })
    /*
     Response:
@@ -45,9 +50,9 @@ function getTradingPairs() {
 
 function getAllTrades(tradingPair, end = null) {
    //Notify console API is alive
-   if (end % process.env.UPDATE_FREQ === 0) {
-      //console.log(`API ALIVE - Poloniex - ${tradingPair.name}`)
-   }
+   // if (end % process.env.UPDATE_FREQ === 0) {
+   //    console.log(`API ALIVE - Poloniex - ${tradingPair.name}`)
+   // }
    //Get Poloniex trades for a specific trading pair
    //Use the last before in the response to get older transactions
    const queryParams = {
@@ -57,41 +62,40 @@ function getAllTrades(tradingPair, end = null) {
    if (end) {
       queryParams.end = end
    }
-   poloniex.axios
+   axios
       .get(`${process.env.POLONIEX_REST}${objectToQuery(queryParams)}`)
       .then(({ data }) => {
          //Add exchange and trading pair data to each object in array of objects
-         const parsedTrades = data.map((trade) => {
+         const parsedData = data.map((tradeData) => {
             return {
-               time: trade.date.replace(' ', 'T') + 'Z',
-               trade_id: trade.globalTradeID,
-               price: trade.rate,
-               amount: trade.total,
+               time: tradeData.date.replace(' ', 'T') + 'Z',
+               trade_id: tradeData.globalTradeID,
+               price: tradeData.rate,
+               amount: tradeData.total,
                exchange: 'poloniex',
                trading_pair: tradingPair.name,
             }
          })
          // If the response consisted of trades
          // Then recursively get the next trades
-         if (parsedTrades.length > 0) {
+         if (parsedData.length > 0) {
             const end =
-               new Date(parsedTrades[parsedTrades.length - 1].time).getTime() /
-               1000
+               new Date(parsedData[parsedData.length - 1].time).getTime() / 1000
             getAllTrades(tradingPair, end)
          }
          //Insert it into the database
-         tradesApi.insert(parsedTrades).catch((err) => {
-            if (!err.message.includes('unique')) {
-               console.log(err)
-               console.log(err.message, '<< POLONIEX REST INSERTION')
-               console.log(parsedTrades[0])
-            }
-         })
+         // tradesApi.insert(parsedData).catch((err) => {
+         //    if (!err.message.includes('unique')) {
+         //       console.log(err)
+         //       console.log(err.message, `\n^^ POLONIEX REST INSERTION - Inserting ${parsedData.length} Trades`)
+         //    }
+         // })
+         insertionBatcher.add(...parsedData)
          //console.log(`[POLONIEX] +${parsedTrades.length} Trades FROM ${tradingPair.name}`)
       })
       .catch((err) => {
          console.log(err)
-         console.log(err.message, '<< POLONIEX REST (TRADE)')
+         console.log(err.message, '\n^^ POLONIEX REST (TRADE)')
       })
    // Example response:
    // [
@@ -129,42 +133,54 @@ function syncAllTrades(tradingPairs) {
    //Handle messages received
    ws.on('message', (data) => {
       data = JSON.parse(data)
-      //Grab the trading pair from the channel property
-      const tradingPairId = tradingPairs.find(
-         (tradingPair) => tradingPair.wsId === data[0],
-      )
-      //Each message contains an array of trades and order book actions (asks and bids)
-      //Trades are denoted by having a the letter t as the first item of the array
-      const tradeDataArray = data[2].filter((action) => action[0] === 't')
-      // console.log(tradeDataArray)
-      for (tradeData of tradeDataArray) {
-         //Construct trade row
-         const trade = {
-            time: new Date(tradeData[5] * 1000).toISOString(),
-            trade_id: tradeData[1],
-            price: tradeData[3],
-            amount: tradeData[4],
-            exchange: 'poloniex',
-            trading_pair: tradingPairId.name,
+      //ocassionally data[2] was undefined which caused an error
+      //added this check
+      if (data[2]) {
+         //Grab the trading pair from the channel property
+         const tradingPairId = tradingPairs.find(
+            (tradingPair) => tradingPair.wsId === data[0],
+         )
+         //Each message contains an array of trades and order book actions (asks and bids)
+         //Trades are denoted by having a the letter t as the first item of the array
+         let tradeDataArray = data[2].filter((action) => action[0] === 't')
+         //Check to see if there were any trades
+         if (tradeDataArray.length > 0) {
+            //Parse data and construct trade rows
+            const parsedData = tradeDataArray.map((tradeData) => ({
+               time: new Date(tradeData[5] * 1000).toISOString(),
+               trade_id: tradeData[1],
+               price: tradeData[3],
+               amount: tradeData[4],
+               exchange: 'poloniex',
+               trading_pair: tradingPairId.name,
+            }))
+            //Insert the trades into the database
+            //console.log(`[POLONIEX] WS +${parsedData.length} Trades FROM ${tradingPairId.name} - ${parsedData[0].time}`)
+            // tradesApi.insert(parsedData).catch((err) => {
+            //    console.log(err)
+            //    if (!err.message.includes('unique')) {
+            //       console.log(err)
+            //       console.log(
+            //          err.message,
+            //          `\n^^ POLONIEX WS INSERTION - Inserting ${tradeDataArray.length} Trades`,
+            //       )
+            //    }
+            // })
+            insertionBatcher.add(...parsedData)
+            //Update the console with the WS status
+            // if (trade.trade_id % process.env.UPDATE_FREQ === 0) {
+            // console.log(`WS ALIVE - Poloniex - ${tradingPairId.name} - ${tradeData.exec_date}`)
+            // }
          }
-         //Insert trade into the database
-         tradesApi.insert(trade).catch((err) => {
-            if (!err.message.includes('unique')) {
-               console.log(err)
-               console.log(err.message, '<< POLONIEX WS INSERTION')
-            }
-         })
-         //Update the console with the WS status
-         if (trade.trade_id % process.env.UPDATE_FREQ === 0) {
-            //console.log(`WS ALIVE - Poloniex - ${tradingPairId.name} - ${tradeData.exec_date}`)
-         }
+      } else {
+         console.log(data, `Avoided Poloniex Error`)
       }
    })
 
    //Handle errors
    ws.on('error', (err) => {
       console.log(err)
-      console.log(err.message, '<< POLONIEX WS')
+      console.log(err.message, '\n^^ POLONIEX WS')
    })
 }
 

@@ -33,7 +33,7 @@ const exchanges = [
    {
       name: 'bitstamp',
       ws: true,
-      interval: 1000 * 60 * 60 * (24 / 0.33),
+      interval: 1000 * 60 * 60 * 2.5, //TODO: WS not syncing properly?? Longpolling every 2.5 minutes
       api: bitstamp,
    },
    /*
@@ -42,11 +42,15 @@ const exchanges = [
         Bithumb does not appear to have WS
         REST API only allows one request every 0.015 seconds
         93 trading pairs * 0.015 means we can at most longpoll at a 1.4 second interval
+        EDIT:
+         Although the math is good, 1.4 seconds was not working well...
+         The requests were not finishing before getAllTrades was called again
+         Resulting in an ever-growing request queue
     */
    {
       name: 'bithumb',
       ws: false,
-      interval: 1400,
+      interval: 1000 * 45,
       api: bithumb,
    },
    /*
@@ -72,7 +76,7 @@ const exchanges = [
    {
       name: 'gemini',
       ws: true,
-      interval: 1000 * 60 * 60 * 24,
+      interval: 1000 * 60, //Gemini WS is broken- longpoll every minute
       api: gemini,
    },
    /*
@@ -94,7 +98,7 @@ const exchanges = [
    {
       name: 'bitflyer',
       ws: true,
-      interval: 1000 * 60 * 60 * 24,
+      interval: 1000 * 60 * 2.5, //While WS is broken, longpoll every 2.5 minutes
       api: bitflyer,
    },
    /*
@@ -163,7 +167,7 @@ const exchanges = [
    {
       name: 'idex',
       ws: false, //Todo: Fix bug- Disabled for now
-      interval: 1000 * 60 * 60 * 24,
+      interval: 1000 * 60 * 5, //Until WS are working. Longpoll every 5 minutes...
       api: idex,
    },
 ]

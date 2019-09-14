@@ -89,13 +89,13 @@ function getAll() {
                               ).toISOString(),
                               rate: rates[symbol],
                            },
-                        )
+                        ).catch(err=>console.log(err, `${err.message} Error While Updating Forex Rate`))
                      } else {
                         return insert({
                            symbol: symbol.toLowerCase(),
                            time: new Date(res.data.data.timestamp * 1000).toISOString(),
                            rate: rates[symbol],
-                        })
+                        }).catch(err => console.log(err, `${err.message} Error While Inserting Forex Rate`))
                      }
                   })
                actions.push(symbolHandler)

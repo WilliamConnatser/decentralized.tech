@@ -1,10 +1,11 @@
-const SmartAxios = require('../../utility/SmartAxios')
-const bithumb = new SmartAxios('bithumb')
+const requestQueue = require('../../utility/requestQueue')
+const axios = requestQueue('bithumb')
 const objectToQuery = require('../../utility/objectToQuery')
+const insertionBatcher = require('../../utility/insertionBatcher')
 const tradesApi = require('../db/trades')
 
 function getTradingPairs() {
-   return bithumb.axios
+   return axios
       .get('https://api.bithumb.com/public/ticker/all')
       .then(({ data }) => {
          const tradingPairs = Object.keys(data.data).map((ticker) => ({
@@ -17,7 +18,7 @@ function getTradingPairs() {
       })
       .catch((err) => {
          console.log(err)
-         console.log(err.message, '<< BITHUMB REST (TRADINGPAIRS)')
+         console.log(err.message, '\n^^ BITHUMB REST (TRADINGPAIRS)')
       })
 }
 
@@ -27,7 +28,7 @@ function getAllTrades(tradingPair) {
    const queryParams = {
       count: 100,
    }
-   bithumb.axios
+   axios
       .get(
          `${process.env.BITHUMB_REST}/transaction_history/${
             tradingPair.id
@@ -35,7 +36,7 @@ function getAllTrades(tradingPair) {
       )
       .then(({ data }) => {
          //Add exchange and trading pair data to each object in array of objects
-         const tradeData = data.data.map((trade) => {
+         const parsedData = data.data.map((trade) => {
             const tradeDate = new Date(trade.transaction_date + ' UTC+09:00')
             return {
                time: tradeDate.toISOString(),
@@ -47,18 +48,19 @@ function getAllTrades(tradingPair) {
          })
 
          //Insert all trades into the database
-         tradesApi.insert(tradeData).catch((err) => {
-            if (!err.message.includes('unique')) {
-               console.log(err)
-               console.log(err.message, '<< BITHUMB REST INSERTION')
-            }
-         })
+         // tradesApi.insert(parsedData).catch((err) => {
+         //    if (!err.message.includes('unique')) {
+         //       console.log(err)
+         //       console.log(err.message, '\n^^ BITHUMB REST INSERTION')
+         //    }
+         // })
+         insertionBatcher.add(...parsedData)
 
          //console.log(`[BITHUMB] +${data.data.length} Trades FROM ${tradingPair.name}`)
       })
       .catch((err) => {
          console.log(err)
-         console.log(err.message, '<< BITHUMB REST (TRADES)')
+         console.log(err.message, '\n^^ BITHUMB REST (TRADES)')
       })
    // Example response:
    // [

@@ -1,13 +1,14 @@
-const SmartAxios = require('../../utility/SmartAxios')
-const bitflyer = new SmartAxios('bitflyer')
+const requestQueue = require('../../utility/requestQueue')
+const axios = requestQueue('bitflyer')
 const WebSocket = require('ws')
 const objectToQuery = require('../../utility/objectToQuery')
+const insertionBatcher = require('../../utility/insertionBatcher')
 const tradesApi = require('../db/trades')
 
 function getTradingPairs() {
    //Get BitFlyer trading pairs
    //The product_code property can be used to get trading-pair-specific trades
-   return bitflyer.axios
+   return axios
       .get(`${process.env.BITFLYER_REST}/getmarkets`)
       .then((res) => {
          //Filter out futures and CFDs
@@ -25,7 +26,7 @@ function getTradingPairs() {
       })
       .catch((err) => {
          console.log(err)
-         console.log(err.message, '<< BITFLYER REST (TRADING PAIRS)')
+         console.log(err.message, '\n^^ BITFLYER REST (TRADING PAIRS)')
       })
    /*
     Response:
@@ -50,7 +51,7 @@ function getAllTrades(tradingPair, before) {
       product_code: tradingPair.id,
    }
    if (before) queryParams.before = before
-   bitflyer.axios
+   axios
       .get(
          `${process.env.BITFLYER_REST}/getexecutions/${objectToQuery(
             queryParams,
@@ -73,12 +74,13 @@ function getAllTrades(tradingPair, before) {
             }
          })
          //Insert parsed trades into the database
-         tradesApi.insert(parsedData).catch((err) => {
-            if (!err.message.includes('unique')) {
-               console.log(err)
-               console.log(err.message, '<< BITFLYER REST INSERTION')
-            }
-         })
+         // tradesApi.insert(parsedData).catch((err) => {
+         //    if (!err.message.includes('unique')) {
+         //       console.log(err)
+         //       console.log(err.message, '\n^^ BITFLYER REST INSERTION')
+         //    }
+         // })
+         insertionBatcher.add(...parsedData)
          //console.log(`[BITFLYER] +${parsedData.length} Trades FROM ${tradingPair.name}`)
          //If the response consisted of 100 trades
          //Then recursively get the next 100 trades
@@ -94,7 +96,7 @@ function getAllTrades(tradingPair, before) {
       })
       .catch((err) => {
          console.log(err)
-         console.log(err.message, '<< BITFLYER REST')
+         console.log(err.message, '\n^^ BITFLYER REST')
       })
    // Example response:
    // [
@@ -143,9 +145,9 @@ function syncAllTrades(tradingPairs) {
       )
       //Each message contains an array of trades
       const tradeDataArray = data.params.message
-      for (tradeData of tradeDataArray) {
+      const parsedData = tradeDataArray.map((tradeData) => {
          //Construct trade row
-         const trade = {
+         return {
             time: new Date(
                // tradeData.exec_date.replace('T', ' ').split('.')[0] +
                //    ' UTC+09:00',
@@ -159,18 +161,20 @@ function syncAllTrades(tradingPairs) {
                (tradingPair) => tradingPair.id === tradingPairId,
             ).name,
          }
-         //Insert trade into the database
-         tradesApi.insert(trade).catch((err) => {
-            if (!err.message.includes('unique')) {
-               console.log(err)
-               console.log(err.message, '<< BITFLYER WS INSERTION')
-            }
-         })
          //Update the console with the WS status
-         if (trade.trade_id % process.env.UPDATE_FREQ === 0) {
-            //console.log(`WS ALIVE - Bitflyer - ${tradingPairId} - ${tradeData.exec_date}`)
-         }
-      }
+         // if (trade.trade_id % process.env.UPDATE_FREQ === 0) {
+         //    console.log(`WS ALIVE - Bitflyer - ${tradingPairId} - ${tradeData.exec_date}`)
+         // }
+      })
+      //console.log(`[BITFLYER] WS +${parsedData.length} Trades FROM ${tradingPairId} - ${parsedData.exec_date}`)
+      //Insert trades into the database
+      // tradesApi.insert(parsedData).catch((err) => {
+      //    if (!err.message.includes('unique')) {
+      //       console.log(err)
+      //       console.log(err.message, '\n^^ BITFLYER WS INSERTION')
+      //    }
+      // })
+      insertionBatcher.add(...parsedData)
    })
    // Example message:
    // {
@@ -186,7 +190,7 @@ function syncAllTrades(tradingPairs) {
    //Handle errors
    ws.on('error', (err) => {
       console.log(err)
-      console.log(err.message, '<< BITFLYER WS')
+      console.log(err.message, '\n^^ BITFLYER WS')
    })
 }
 

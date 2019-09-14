@@ -1,13 +1,14 @@
-const SmartAxios = require('../../utility/SmartAxios')
-const bitstamp = new SmartAxios('bitstamp')
+const requestQueue = require('../../utility/requestQueue')
+const axios = requestQueue('bitstamp')
 const WebSocket = require('ws')
 const objectToQuery = require('../../utility/objectToQuery')
+const insertionBatcher = require('../../utility/insertionBatcher')
 const tradesApi = require('../db/trades')
 
 function getTradingPairs() {
    //Get Bitstamp trading pairs
    //The url_symbol property can be used to get trading-pair-specific trades
-   return bitstamp.axios
+   return axios
       .get(`${process.env.BITSTAMP_REST}/trading-pairs-info`)
       .then((res) => {
          //Return parsed response
@@ -19,7 +20,7 @@ function getTradingPairs() {
       })
       .catch((err) => {
          console.log(err)
-         console.log(err.message, '<< BITSTAMP REST (TRADING PAIRS)')
+         console.log(err.message, '\n^^ BITSTAMP REST (TRADING PAIRS)')
       })
    /*
     Response:
@@ -41,35 +42,42 @@ function getAllTrades(tradingPair) {
    //Get Bitstamp trades for a specific trading pair
    //Bitstamp only has previous 24hr data available.. :\
    //Will need to source historical data separately
-   bitstamp.axios
+   axios
       .get(
          `${process.env.BITSTAMP_REST}/transactions/${tradingPair.id}?time=day`,
       )
       .then((res) => {
          //Parse trade data
-         const tradeData = res.data.map((trade) => {
-            const tradeDate = new Date(trade.date * 1000)
+         const parsedData = res.data.map((tradeData) => {
+            const tradeDate = new Date(tradeData.date * 1000)
             return {
                time: tradeDate.toISOString(),
-               trade_id: trade.tid,
-               price: trade.price,
-               amount: trade.amount,
+               trade_id: tradeData.tid,
+               price: tradeData.price,
+               amount: tradeData.amount,
                exchange: 'bitstamp',
                trading_pair: tradingPair.id,
             }
          })
          //Insert all trades into the database
-         tradesApi.insertMany(tradeData).catch((err) => {
-            if (!err.message.includes('unique')) {
-               console.log(err)
-               console.log(err.message, '<< BITSTAMP REST INSERTION')
-            }
-         })
+         //Only use insertMany when needed.. (When inserting 1000s)
+         // if (parsedData.length > 2000) {
+         //    var insertionMethod = tradesApi.insertMany
+         // } else {
+         //    var insertionMethod = tradesApi.insert
+         // }
+         // insertionMethod(parsedData).catch((err) => {
+         //    if (!err.message.includes('unique')) {
+         //       console.log(err)
+         //       console.log(err.message, '\n^^ BITSTAMP REST INSERTION')
+         //    }
+         // })
+         insertionBatcher.add(...parsedData)
          //console.log(`[BITSTAMP] +${res.data.length} Trades FROM ${tradingPair.id}`)
       })
       .catch((err) => {
          console.log(err)
-         console.log(err.message, '<< BITSTAMP REST (TRADES)')
+         console.log(err.message, '\n^^ BITSTAMP REST (TRADES)')
       })
    /*
         [
@@ -114,7 +122,7 @@ function syncAllTrades(tradingPairs) {
          const id = data.channel.split('_')[data.channel.split('_').length - 1]
          //Construct trade row
          const tradeData = data.data
-         const trade = {
+         const parsedData = {
             time: new Date(tradeData.timestamp * 1000).toISOString(),
             trade_id: tradeData.id,
             price: tradeData.price,
@@ -122,17 +130,8 @@ function syncAllTrades(tradingPairs) {
             exchange: 'bitstamp',
             trading_pair: id,
          }
-         //Insert trade into the database
-         tradesApi.insert(trade).catch((err) => {
-            if (!err.message.includes('unique')) {
-               console.log(err)
-               console.log(err.message, '<< BITSTAMP WS INSERTION')
-            }
-         })
-         //Update the console with the WS status
-         if (trade.trade_id % process.env.UPDATE_FREQ === 0) {
-            //console.log(`[BITSTAMP] - WS ALIVE - ${id} - ${new Date(tradeData.timestamp * 1000).toISOString()}`)
-         }
+         console.log(`[BITSTAMP] WS +1 FROM ${id} - ${parsedData.time}`)
+         insertionBatcher.add(parsedData)
       }
       //If the WS server is going down for maintenance
       else if (data.event == 'bts-request_reconnect') {
@@ -158,7 +157,7 @@ function syncAllTrades(tradingPairs) {
    //Handle errors
    ws.on('error', (err) => {
       console.log(err)
-      console.log(err.message, '<< BITSTAMP WS')
+      console.log(err.message, '\n^^ BITSTAMP WS')
    })
 }
 

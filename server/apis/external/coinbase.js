@@ -1,13 +1,14 @@
-const SmartAxios = require('../../utility/SmartAxios')
-const coinbase = new SmartAxios('coinbase')
+const requestQueue = require('../../utility/requestQueue')
+const axios = requestQueue('coinbase')
 const WebSocket = require('ws')
 const objectToQuery = require('../../utility/objectToQuery')
+const insertionBatcher = require('../../utility/insertionBatcher')
 const tradesApi = require('../db/trades')
 
 function getTradingPairs() {
    //Get Coinbase trading pairs
    //The id property can be used in API requests
-   return coinbase.axios
+   return axios
       .get(`${process.env.COINBASE_REST}/products`)
       .then((res) => {
          //Return parsed response
@@ -18,7 +19,7 @@ function getTradingPairs() {
       })
       .catch((err) => {
          console.log(err)
-         console.log(err.message, '<< COINBASE REST (TRADING PAIRS)')
+         console.log(err.message, '\n^^ COINBASE REST (TRADING PAIRS)')
       })
    /* Response:
         [
@@ -56,7 +57,7 @@ function getAllTrades(tradingPair, cbAfter = null) {
    }
 
    //Get Coinbase trades for a specific trading pair ID
-   coinbase.axios
+   axios
       .get(
          `${process.env.COINBASE_REST}/products/${tradingPair.id}/trades${queryParam}`,
       )
@@ -71,28 +72,29 @@ function getAllTrades(tradingPair, cbAfter = null) {
             )
          }
          //Parse each trade response
-         const tradeData = res.data.map((trade) => {
+         const parsedData = res.data.map((tradeData) => {
             return {
-               time: new Date(trade.time).toISOString(),
-               trade_id: trade.trade_id,
-               price: trade.price,
-               amount: trade.size,
+               time: new Date(tradeData.time).toISOString(),
+               trade_id: tradeData.trade_id,
+               price: tradeData.price,
+               amount: tradeData.size,
                exchange: 'coinbase',
                trading_pair: tradingPair.name,
             }
          })
          //Insert parsed trades into the database
-         tradesApi.insert(tradeData).catch((err) => {
-            if (!err.message.includes('unique')) {
-               console.log(err)
-               console.log(err.message, '<< COINBASE REST INSERTION')
-            }
-         })
+         // tradesApi.insert(parsedData).catch((err) => {
+         //    if (!err.message.includes('unique')) {
+         //       console.log(err)
+         //       console.log(err.message, '\n^^ COINBASE REST INSERTION')
+         //    }
+         // })
+         insertionBatcher.add(...parsedData)
          //console.log(`[COINBASE] +${res.data.length} Trades FROM ${tradingPair.name} (cbAfter = ${cbAfter})`)
       })
       .catch((err) => {
          console.log(err)
-         console.log(err.message, '<< COINBASE REST (TRADES)')
+         console.log(err.message, '\n^^ COINBASE REST (TRADES)')
       })
    /*
         [
@@ -139,32 +141,34 @@ function syncAllTrades(tradingPairs) {
          const tradingPair = tradingPairs.find(
             (tradingPair) => tradingPair.id === data.product_id,
          ).name
-         const trade = {
-            time: data.time,
+         const parsedTrade = {
+            time: new Date(data.time).toISOString(),
             trade_id: data.trade_id,
             price: data.price,
             amount: data.size,
             exchange: 'coinbase',
             trading_pair: tradingPair,
          }
+         // console.log(`[COINBASE] WS +1 Trade FROM ${tradingPair} - ${parsedTrade.time}`)
          //Insert it into the database
-         tradesApi.insert(trade).catch((err) => {
-            if (!err.message.includes('unique')) {
-               console.log(err)
-               console.log(err.message, '<< COINBASE WS INSERTION')
-            }
-         })
+         // tradesApi.insert(parsedTrade).catch((err) => {
+         //    if (!err.message.includes('unique')) {
+         //       console.log(err)
+         //       console.log(err.message, '\n^^ COINBASE WS INSERTION')
+         //    }
+         // })
+         insertionBatcher.add(parsedTrade)
          //Update the console with the WS status
-         if (trade.trade_id % process.env.UPDATE_FREQ === 0) {
-            //console.log(`[COINBASE] WS ALIVE - ${trade.time} - ${tradingPair}`)
-         }
+         // if (trade.trade_id % process.env.UPDATE_FREQ === 0) {
+         //    console.log(`[COINBASE] WS ALIVE - ${trade.time} - ${tradingPair}`)
+         // }
       }
    })
 
    //Handle errors
    ws.on('error', (err) => {
       console.log(err)
-      console.log(err.message, '<< COINBASE WS')
+      console.log(err.message, '\n^^ COINBASE WS')
    })
 }
 

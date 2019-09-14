@@ -1,12 +1,13 @@
 const WebSocket = require('ws')
-const SmartAxios = require('../../utility/SmartAxios')
-const gemini = new SmartAxios('gemini')
+const requestQueue = require('../../utility/requestQueue')
+const axios = requestQueue('gemini')
 const objectToQuery = require('../../utility/objectToQuery')
+const insertionBatcher = require('../../utility/insertionBatcher')
 const tradesApi = require('../db/trades')
 
 //Gets Gemini trading pairs
 function getTradingPairs() {
-   return gemini.axios
+   return axios
       .get(`${process.env.GEMINI_REST}/symbols`)
       .then((res) => {
          //Returns a plain array of trading pairs
@@ -14,7 +15,7 @@ function getTradingPairs() {
       })
       .catch((err) => {
          console.log(err)
-         console.log(err.message, '<< GEMINI REST (TRADING PAIRS)')
+         console.log(err.message, '\n^^ GEMINI REST (TRADING PAIRS)')
       })
    /*
     [
@@ -48,7 +49,7 @@ function getAllTrades(tradingPair, timestamp) {
    if (timestamp) {
       queryParams.since = timestamp
    }
-   gemini.axios
+   axios
       .get(
          `${process.env.GEMINI_REST}/trades/${tradingPair}${objectToQuery(
             queryParams,
@@ -56,23 +57,25 @@ function getAllTrades(tradingPair, timestamp) {
       )
       .then(({ data }) => {
          //Add exchange and trading pair data to each object in array of objects
-         const parsedTrades = data.map((trade) => {
+         const parsedTrades = data.map((tradeData) => {
             return {
-               time: new Date(trade.timestampms).toISOString(),
-               trade_id: trade.tid,
-               price: trade.price,
-               amount: trade.amount,
+               time: new Date(tradeData.timestampms).toISOString(),
+               trade_id: tradeData.tid,
+               price: tradeData.price,
+               amount: tradeData.amount,
                exchange: 'gemini',
                trading_pair: tradingPair,
             }
          })
+         //console.log(`[GEMINI] REST +${parsedTrades.length} Trades FROM ${tradingPair} - ${parsedTrades[0].time}`)
          //Insert parsed trades into the database
-         tradesApi.insertMany(parsedTrades).catch((err) => {
-            if (!err.message.includes('unique')) {
-               console.log(err)
-               console.log(err.message, '<< GEMINI REST (INSERTION)')
-            }
-         })
+         // tradesApi.insert(parsedTrades).catch((err) => {
+         //    if (!err.message.includes('unique')) {
+         //       console.log(err)
+         //       console.log(err.message, '\n^^ GEMINI REST (INSERTION)')
+         //    }
+         // })
+         insertionBatcher.add(...parsedTrades)
          //If the response consisted of 500 trades
          if (parsedTrades.length === 500) {
             const timestamp = data[data.length - 1].timestampms
@@ -80,12 +83,11 @@ function getAllTrades(tradingPair, timestamp) {
             //Requests are rate limited by 1 second in SmartAxios
             getAllTrades(tradingPair, timestamp)
          }
-         //console.log(`[BITSTAMP] +${parsedTrades.length} Trades FROM ${tradingPair}`)
       })
       .catch((err) => {
          if (!err.response.data.reason === 'HistoricalDataNotAvailable') {
             console.log(err)
-            console.log(err.message, '<< GEMINI REST (TRADES)')
+            console.log(err.message, '\n^^ GEMINI REST (TRADES)')
          }
       })
    // Example response:
@@ -104,57 +106,49 @@ function getAllTrades(tradingPair, timestamp) {
 }
 
 function syncAllTrades(tradingPairs) {
-   tradingPairs.forEach((tradingPair) => {
-      const queryParams = objectToQuery({ trades: true })
-      //Setup WS
-      const ws = new WebSocket(
-         `${process.env.GEMINI_WS}${tradingPair}${queryParams}`,
-      )
-      //Open WS connection
-      ws.on('open', () => {
-         //console.log(`[GEMINI] WS Connected at ${process.env.GEMINI_WS}${tradingPair}${queryParams}`)
-         //No need for a subscription message
-         //Settings are handled via the WS path and query params
-      })
+   tradingPairs.forEach((tradingPair, index) => {
+      //Gemini recommends only one WS request per trading pair per minute
+      //So delay each WS by 1 minute * index + 1
+      setTimeout(() => {
+         const queryParams = objectToQuery({ trades: true })
+         //Setup WS
+         const ws = new WebSocket(
+            `${process.env.GEMINI_WS}${tradingPair}${queryParams}`,
+         )
+         //Open WS connection
+         ws.on('open', () => {
+            //console.log(`[GEMINI] WS Connected at ${process.env.GEMINI_WS}${tradingPair}${queryParams}`)
+            //No need for a subscription message
+            //Settings are handled via the WS path and query params
+         })
 
-      //Handle messages received
-      ws.on('message', (data) => {
-         data = JSON.parse(data)
-         //Parse trade data from the message
-         const tradeData = data.events.map((trade) => {
-            return {
-               time: new Date(data.timestampms),
-               trade_id: trade.tid,
-               price: trade.price,
-               amount: trade.amount,
-               exchange: 'gemini',
-               trading_pair: tradingPair,
+         //Handle messages received
+         ws.on('message', (data) => {
+            data = JSON.parse(data)
+            if (data.events.length > 0) {
+               //Parse trade data from the message
+               const parsedData = data.events.map((tradeData) => {
+                  return {
+                     time: new Date(data.timestampms).toISOString(),
+                     trade_id: tradeData.tid,
+                     price: tradeData.price,
+                     amount: tradeData.amount,
+                     exchange: 'gemini',
+                     trading_pair: tradingPair,
+                  }
+               })
+               console.log(
+                  `[GEMINI] WS +${parsedData.length} FROM ${tradingPair} - ${parsedData[0].time}`,
+               )
+               insertionBatcher.add(...parsedData)
             }
          })
-         //Insert the parsed trade into the database
-         tradesApi.insert(tradeData).catch((err) => {
-            if (!err.message.includes('unique')) {
-               console.log(err)
-               console.log(err.message, '<< GEMINI WS (INSERTION)')
-            }
-         })
-         //Update the console with the WS status
-         if (data.timestampms % process.env.UPDATE_FREQ === 0) {
-            //console.log(`[GEMINI] WS ALIVE - ${new Date(data.timestampms)} - ${tradingPair}`)
-         }
-      })
-      //Handle errors
-      ws.on('error', (err) => {
-         //TODO: Possible bug?
-         //Not sure why this 429 is occuring occasionally when the server first boots up
-         //Recursively call syncAllTrades again with only this trading pair to ensure full coverage
-         if (err.message.includes('429')) {
-            syncAllTrades([tradingPair])
-         } else {
+         //Handle errors
+         ws.on('error', (err) => {
             console.log(err)
-            console.log(err.message, '<< GEMINI WS', tradingPair)
-         }
-      })
+            console.log(err.message, '\n^^ GEMINI WS', tradingPair)
+         })
+      }, 1000 * 60 * (index + 1))
    })
 }
 

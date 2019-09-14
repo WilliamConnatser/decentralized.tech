@@ -7,7 +7,7 @@ function insert(trade) {
 
 //Add many trades to the database
 function insertMany(trades) {
-   return db.batchInsert('trades', trades)
+   return db.batchInsert('trades', trades, 5000).returning('time')
 }
 
 //Get a single trade
@@ -39,7 +39,7 @@ function getUniquePairs() {
 //Get all exchanges which have a certain trading pair
 function getExchangesByTP(trading_pair) {
    return db('trades')
-      .where({trading_pair})
+      .where({ trading_pair })
       .distinct()
       .pluck('exchange')
 }
@@ -50,5 +50,5 @@ module.exports = {
    getOne,
    getMany,
    getUniquePairs,
-   getExchangesByTP
+   getExchangesByTP,
 }

@@ -1,13 +1,14 @@
-const SmartAxios = require('../../utility/SmartAxios')
-const kraken = new SmartAxios('kraken')
+const requestQueue = require('../../utility/requestQueue')
+const axios = requestQueue('kraken')
 const WebSocket = require('ws')
 const objectToQuery = require('../../utility/objectToQuery')
+const insertionBatcher = require('../../utility/insertionBatcher')
 const tradesApi = require('../db/trades')
 
 function getTradingPairs() {
    //Get Kraken trading pairs
    //The id property can be used in API requests
-   return kraken.axios
+   return axios
       .get(`${process.env.KRAKEN_REST}/AssetPairs`)
       .then((res) => {
          return Object.keys(res.data.result).map((tradingPair) => {
@@ -16,7 +17,7 @@ function getTradingPairs() {
                name: res.data.result[tradingPair].altname
                   .replace('.d', '')
                   .toLowerCase()
-                  .replace('xbt','btc'),
+                  .replace('xbt', 'btc'),
                ws: res.data.result[tradingPair].wsname,
             }
          })
@@ -37,33 +38,44 @@ function getAllTrades(tradingPair, since = null) {
    queryParams = objectToQuery(queryParams)
 
    //Get Kraken trades for a specific trading pair ID
-   kraken.axios
+   axios
       .get(`${process.env.KRAKEN_REST}/Trades${queryParams}`)
       .then(({ data }) => {
-         //The response contains a `last` property which can be used via longpolling
-         if (data.result.last) {
-            //Update orders every 5 minutes
-            setTimeout(() => getAllTrades(tradingPair, data.result.last), 25000)
+         //Getting error that data.result was undefined??? Added this check
+         if (data.result) {
+            //The response contains a `last` property which can be used via longpolling
+            if (data.result.last) {
+               //Update orders every 5 minutes
+               setTimeout(
+                  () => getAllTrades(tradingPair, data.result.last),
+                  25000,
+               )
+            }
+            if (data.result[tradingPair.id].length > 0) {
+               //Parse each trade response
+               const parsedData = data.result[tradingPair.id].map(
+                  (tradeData) => {
+                     const tradeDate = new Date(tradeData[2] * 1000)
+                     return {
+                        time: tradeDate.toISOString(),
+                        price: tradeData[0],
+                        amount: tradeData[1],
+                        exchange: 'kraken',
+                        trading_pair: tradingPair.name,
+                     }
+                  },
+               )
+               //Insert parsed trade into the database
+               // tradesApi.insert(parsedData).catch((err) => {
+               //    if (!err.message.includes('unique')) {
+               //       console.log(err)
+               //       console.log(err.message, '\n^^ KRAKEN REST')
+               //    }
+               // })
+               insertionBatcher.add(...parsedData)
+               //console.log(`[KRAKEN] +${tradeData.length} Trades FROM ${tradingPair.name} (since = ${since})`)
+            }
          }
-         //Parse each trade response
-         const tradeData = data.result[tradingPair.id].map((trade) => {
-            const tradeDate = new Date(trade[2] * 1000)
-            return {
-               time: tradeDate.toISOString(),
-               price: trade[0],
-               amount: trade[1],
-               exchange: 'kraken',
-               trading_pair: tradingPair.name,
-            }
-         })
-         //Insert parsed trade into the database
-         tradesApi.insert(tradeData).catch((err) => {
-            if (!err.message.includes('unique')) {
-               console.log(err)
-               console.log(err.message, '<< KRAKEN REST')
-            }
-         })
-         //console.log(`[KRAKEN] +${tradeData.length} Trades FROM ${tradingPair.name} (since = ${since})`)
       })
       .catch((err) => {
          console.log(err)
@@ -109,28 +121,29 @@ function syncAllTrades(tradingPairs) {
       data = JSON.parse(data)
       if (Array.isArray(data)) {
          //Parse trades
-         const tradeData = data[1].map((trade) => {
-            const tradeDate = new Date(Number(trade[2] * 1000))
+         const parsedData = data[1].map((tradeData) => {
+            const tradeDate = new Date(Number(tradeData[2] * 1000))
             //Ocassionally update the console with the WS status
-            if (tradeDate.getTime() % process.env.UPDATE_FREQ === 0) {
-               //console.log(`[KRAKEN] WS ALIVE - ${tradeDate.toISOString()} - ${channelLookup[data[0]]}`)
-            }
+            // if (tradeDate.getTime() % process.env.UPDATE_FREQ === 0) {
+            //    console.log(`[KRAKEN] WS ALIVE - ${tradeDate.toISOString()} - ${channelLookup[data[0]]}`)
+            // }
             //Parse trade data
             return {
                time: tradeDate.toISOString(),
-               price: trade[0],
-               amount: trade[1],
+               price: tradeData[0],
+               amount: tradeData[1],
                exchange: 'kraken',
                trading_pair: channelLookup[data[0]],
             }
          })
          //Insert the parsed trades into the database
-         tradesApi.insert(tradeData).catch((err) => {
-            if (!err.message.includes('unique')) {
-               console.log(err)
-               console.log(err.message, '<< KRAKEN WS (INSERTION)')
-            }
-         })
+         // tradesApi.insert(parsedData).catch((err) => {
+         //    if (!err.message.includes('unique')) {
+         //       console.log(err)
+         //       console.log(err.message, '\n^^ KRAKEN WS (INSERTION)')
+         //    }
+         // })
+         insertionBatcher.add(...parsedData)
       } else {
          if (
             data.event &&
@@ -146,7 +159,7 @@ function syncAllTrades(tradingPairs) {
 
    //Handle errors
    ws.on('error', (error) => {
-      console.log(error.message, '<< KRAKEN WS')
+      console.log(error.message, '\n^^ KRAKEN WS')
    })
 }
 

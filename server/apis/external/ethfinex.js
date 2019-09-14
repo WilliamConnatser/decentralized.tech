@@ -1,12 +1,13 @@
-const SmartAxios = require('../../utility/SmartAxios')
-const ethfinex = new SmartAxios('ethfinex')
+const requestQueue = require('../../utility/requestQueue')
+const axios = requestQueue('ethfinex')
 const WebSocket = require('ws')
 const objectToQuery = require('../../utility/objectToQuery')
+const insertionBatcher = require('../../utility/insertionBatcher')
 const tradesApi = require('../db/trades')
 
 function getTradingPairs() {
    //Get EthFinex trading pairs
-   return ethfinex.axios
+   return axios
       .get(`${process.env.ETHFINEX_REST}/tickers?symbols=ALL`)
       .then((res) => {
          //The response can include both trading pairs and single currencies
@@ -26,7 +27,7 @@ function getTradingPairs() {
       })
       .catch((err) => {
          console.log(err)
-         console.log(err.message, '<< ETHFINEX REST (TRADING PAIRS)')
+         console.log(err.message, '\n^^ ETHFINEX REST (TRADING PAIRS)')
       })
    /* Response:
         [
@@ -60,7 +61,7 @@ function getAllTrades(tradingPair, end) {
    queryParams = objectToQuery(queryParams)
 
    //Get EthFinex trades for a specific trading pair
-   ethfinex.axios
+   axios
       .get(
          `${process.env.ETHFINEX_REST}/trades/${tradingPair.id}/hist${queryParams}`,
       )
@@ -77,16 +78,17 @@ function getAllTrades(tradingPair, end) {
             }
          })
          //Insert it into the database
-         tradesApi.insert(parsedData).catch((err) => {
-            if (!err.message.includes('unique')) {
-               console.log(err)
-               console.log(err.message, '<< ETHFINEX REST INSERTION')
-            }
-         })
+         // tradesApi.insert(parsedData).catch((err) => {
+         //    if (!err.message.includes('unique')) {
+         //       console.log(err)
+         //       console.log(err.message, '\n^^ ETHFINEX REST INSERTION')
+         //    }
+         // })
+         insertionBatcher.add(...parsedData)
          //console.log(`[ETHFINEX] +${parsedData.length} Trades FROM ${tradingPair.name}`)
       })
       .catch((err) => {
-         console.log(err.message, '<< ETHFINEX REST (TRADES)')
+         console.log(err.message, '\n^^ ETHFINEX REST (TRADES)')
          console.log(err)
       })
    /*
@@ -137,42 +139,41 @@ function syncAllTrades(tradingPairs) {
          let tradingPair = channelLookup[data[0]]
          //When first subscribing an array of recent trades is sent
          if (Array.isArray(data[1])) {
-            const tradeData = data[1].map((trade) => {
+            const parsedData = data[1].map((tradeData) => {
                return {
-                  time: new Date(trade[1]).toISOString(),
-                  trade_id: trade[0],
-                  price: trade[2],
-                  amount: trade[3],
+                  time: new Date(tradeData[1]).toISOString(),
+                  trade_id: tradeData[0],
+                  price: tradeData[2],
+                  amount: tradeData[3],
                   exchange: 'ethfinex',
                   trading_pair: tradingPair,
                }
             })
-            tradesApi.insert(tradeData).catch((err) => {
-               if (!err.message.includes('unique')) {
-                  console.log(err)
-                  console.log(err.message, '<< ETHFINEX WS INSERTION')
-               }
-            })
+            // tradesApi.insert(parsedData).catch((err) => {
+            //    if (!err.message.includes('unique')) {
+            //       console.log(err)
+            //       console.log(err.message, '\n^^ ETHFINEX WS BATCH INSERTION')
+            //    }
+            // })
+            insertionBatcher.add(...parsedData)
          }
          //Otherwise data[1] will === "te" or "tu"
          //For each trade both a "te" and "tu" message will be sent
          //"tu" trades supposedly contain real trade IDs
          else if (data[1] === 'tu') {
-            const trade = data[2]
-            const tradeData = {
-               time: new Date(trade[1]).toISOString(),
-               trade_id: trade[0],
-               price: trade[2],
-               amount: trade[3],
+            const tradeData = data[2]
+            const parsedData = {
+               time: new Date(tradeData[1]).toISOString(),
+               trade_id: tradeData[0],
+               price: tradeData[2],
+               amount: tradeData[3],
                exchange: 'ethfinex',
                trading_pair: tradingPair,
             }
-            tradesApi.insert(tradeData).catch((err) => {
-               if (!err.message.includes('unique')) {
-                  console.log(err)
-                  console.log(err.message, '<< ETHFINEX WS INSERTION')
-               }
-            })
+            console.log(
+               `[ETHFINEX] WS +1 FROM ${tradingPair} - ${parsedData.time}`,
+            )
+            insertionBatcher.add(parsedData)
          }
       }
    })
@@ -180,7 +181,7 @@ function syncAllTrades(tradingPairs) {
    //Handle errors
    ws.on('error', (err) => {
       console.log(err)
-      console.log(err.message, '<< ETHFINEX WS')
+      console.log(err.message, '\n^^ ETHFINEX WS')
    })
 }
 

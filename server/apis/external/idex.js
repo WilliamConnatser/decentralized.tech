@@ -1,13 +1,14 @@
-const SmartAxios = require('../../utility/SmartAxios')
-const idex = new SmartAxios('idex')
+const requestQueue = require('../../utility/requestQueue')
+const axios = requestQueue('idex')
 const WebSocket = require('ws')
 const objectToQuery = require('../../utility/objectToQuery')
+const insertionBatcher = require('../../utility/insertionBatcher')
 const tradesApi = require('../db/trades')
 
 function getTradingPairs() {
    //Get IDEX trading pairs
    //The id property can be used in API requests
-   return idex.axios
+   return axios
       .get(`${process.env.IDEX_REST}/returnTicker`)
       .then((res) => {
          //Parse response
@@ -25,7 +26,7 @@ function getTradingPairs() {
       })
       .catch((err) => {
          console.log(err)
-         console.log(err.message, '<< IDEX REST (TRADING PAIR)')
+         console.log(err.message, '\n^^ IDEX REST (TRADING PAIR)')
       })
    /* Response:
     {
@@ -55,7 +56,7 @@ function getAllTrades(tradingPair, cursor = null) {
       queryBody.cursor = cursor
    }
    //Get IDEX trades for a specific trading pair ID
-   idex.axios
+   axios
       .post(`${process.env.IDEX_REST}/returnTradeHistory`, queryBody)
       .then((res) => {
          //The header containers a idex-next-cursor property which can be used to get data
@@ -63,29 +64,33 @@ function getAllTrades(tradingPair, cursor = null) {
          if (res.headers['idex-next-cursor']) {
             getAllTrades(tradingPair, res.headers['idex-next-cursor'])
          }
-         //Add exchange and trading pair data to each object in array of objects
-         const parsedTrades = res.data.map((trade) => {
-            return {
-               time: new Date(trade.timestamp * 1000),
-               trade_id: trade.tid,
-               price: Number(trade.price),
-               amount: Number(trade.total),
-               exchange: 'idex',
-               trading_pair: tradingPair.name,
-            }
-         })
-         //Insert it into the database
-         tradesApi.insert(parsedTrades).catch((err) => {
-            if (!err.message.includes('unique')) {
-               console.log(err)
-               console.log(err.message, '<< IDEX REST INSERTION')
-            }
-         })
-         //console.log(`[IDEX] +${parsedTrades.length} Trades FROM ${tradingPair.name}`)
+
+         if (res.data.length > 0) {
+            //Add exchange and trading pair data to each object in array of objects
+            const parsedTrades = res.data.map((tradeData) => {
+               return {
+                  time: new Date(tradeData.timestamp * 1000).toISOString(),
+                  trade_id: tradeData.tid,
+                  price: tradeData.price,
+                  amount: tradeData.total,
+                  exchange: 'idex',
+                  trading_pair: tradingPair.name,
+               }
+            })
+            //Insert it into the database
+            // tradesApi.insert(parsedTrades).catch((err) => {
+            //    if (!err.message.includes('unique')) {
+            //       console.log(err)
+            //       console.log(err.message, '\n^^ IDEX REST INSERTION')
+            //    }
+            // })
+            insertionBatcher.add(...parsedTrades)
+            //console.log(`[IDEX] REST API +${parsedTrades.length} Trades FROM ${tradingPair.name} - ${parsedTrades[0].time}`)
+         }
       })
       .catch((err) => {
          console.log(err)
-         console.log(err.message, '<< IDEX REST (TRADES)')
+         console.log(err.message, '\n^^ IDEX REST (TRADES)')
       })
    /*
         [
@@ -176,8 +181,9 @@ function getAllTrades(tradingPair, cursor = null) {
 //             //Insert it into the database
 //             tradesApi.insert(trade);
 //             //Update the console with the WS status
-//             if (trade.trade_id % process.env.UPDATE_FREQ === 0)
+//             if (trade.trade_id % process.env.UPDATE_FREQ === 0) {
 //                 console.log(`WS ALIVE - Coinbase - ${trade.time}`)
+//             }
 //         }
 //     })
 
