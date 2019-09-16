@@ -60,18 +60,6 @@ function getAllTrades(tradingPair) {
             }
          })
          //Insert all trades into the database
-         //Only use insertMany when needed.. (When inserting 1000s)
-         // if (parsedData.length > 2000) {
-         //    var insertionMethod = tradesApi.insertMany
-         // } else {
-         //    var insertionMethod = tradesApi.insert
-         // }
-         // insertionMethod(parsedData).catch((err) => {
-         //    if (!err.message.includes('unique')) {
-         //       console.log(err)
-         //       console.log(err.message, '\n^^ BITSTAMP REST INSERTION')
-         //    }
-         // })
          insertionBatcher.add(...parsedData)
          //console.log(`[BITSTAMP] +${res.data.length} Trades FROM ${tradingPair.id}`)
       })
@@ -120,8 +108,8 @@ function syncAllTrades(tradingPairs) {
       if (data.event === 'trade') {
          //Grab the id from the channel property
          const id = data.channel.split('_')[data.channel.split('_').length - 1]
-         //Construct trade row
          const tradeData = data.data
+         //Parse new trade
          const parsedData = {
             time: new Date(tradeData.timestamp * 1000).toISOString(),
             trade_id: tradeData.id,
@@ -130,8 +118,9 @@ function syncAllTrades(tradingPairs) {
             exchange: 'bitstamp',
             trading_pair: id,
          }
-         console.log(`[BITSTAMP] WS +1 FROM ${id} - ${parsedData.time}`)
+         //Insert trade into database
          insertionBatcher.add(parsedData)
+         //console.log(`[BITSTAMP] WS +1 FROM ${id} - ${parsedData.time}`)
       }
       //If the WS server is going down for maintenance
       else if (data.event == 'bts-request_reconnect') {

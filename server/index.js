@@ -6,7 +6,7 @@ const syncTrades = require('./controllers/syncTrades')
 const forexRatesApi = require('./apis/db/forexRates')
 
 //TODO:
-//Look at Idex, Ethfinex, Gemini, and Bitstamp
+//Look at Idex and Gemini
 //They seem to be falling behind on updates after the server runs for hours
 syncTrades()
 

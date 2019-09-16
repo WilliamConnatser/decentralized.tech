@@ -66,7 +66,7 @@ function getAllTrades(tradingPair, end) {
          `${process.env.ETHFINEX_REST}/trades/${tradingPair.id}/hist${queryParams}`,
       )
       .then(({ data }) => {
-         //Add exchange and trading pair data to each object in array of objects
+         //Add exchange and trading pair data to each trade
          const parsedData = data.map((trade) => {
             return {
                time: new Date(trade[1]).toISOString(),
@@ -78,12 +78,6 @@ function getAllTrades(tradingPair, end) {
             }
          })
          //Insert it into the database
-         // tradesApi.insert(parsedData).catch((err) => {
-         //    if (!err.message.includes('unique')) {
-         //       console.log(err)
-         //       console.log(err.message, '\n^^ ETHFINEX REST INSERTION')
-         //    }
-         // })
          insertionBatcher.add(...parsedData)
          //console.log(`[ETHFINEX] +${parsedData.length} Trades FROM ${tradingPair.name}`)
       })
@@ -139,6 +133,7 @@ function syncAllTrades(tradingPairs) {
          let tradingPair = channelLookup[data[0]]
          //When first subscribing an array of recent trades is sent
          if (Array.isArray(data[1])) {
+            //Parse all of the trades
             const parsedData = data[1].map((tradeData) => {
                return {
                   time: new Date(tradeData[1]).toISOString(),
@@ -149,12 +144,7 @@ function syncAllTrades(tradingPairs) {
                   trading_pair: tradingPair,
                }
             })
-            // tradesApi.insert(parsedData).catch((err) => {
-            //    if (!err.message.includes('unique')) {
-            //       console.log(err)
-            //       console.log(err.message, '\n^^ ETHFINEX WS BATCH INSERTION')
-            //    }
-            // })
+            //Insert the trades into the database
             insertionBatcher.add(...parsedData)
          }
          //Otherwise data[1] will === "te" or "tu"
@@ -170,9 +160,7 @@ function syncAllTrades(tradingPairs) {
                exchange: 'ethfinex',
                trading_pair: tradingPair,
             }
-            console.log(
-               `[ETHFINEX] WS +1 FROM ${tradingPair} - ${parsedData.time}`,
-            )
+            // console.log(`[ETHFINEX] WS +1 FROM ${tradingPair} - ${parsedData.time}`,)
             insertionBatcher.add(parsedData)
          }
       }

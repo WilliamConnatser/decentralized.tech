@@ -79,7 +79,12 @@ function requestQueue(exchange, headers = {}) {
       if (difference < 0) difference = 0
       setTimeout(() => {
          const { promise, config } = queue.shift()
-         // console.log(`${exchange} has ${queue.length} requests in its queue`)
+         if (
+            exchange === 'idex' ||
+            (exchange === 'gemini' && queue.length % 9 === 0)
+         ) {
+            console.log(`${exchange} has ${queue.length} requests in its queue`)
+         }
          const parsedConfig = {
             ...config,
             headers: {

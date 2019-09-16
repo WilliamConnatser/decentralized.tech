@@ -3,7 +3,6 @@ const requestQueue = require('../../utility/requestQueue')
 const axios = requestQueue('gemini')
 const objectToQuery = require('../../utility/objectToQuery')
 const insertionBatcher = require('../../utility/insertionBatcher')
-const tradesApi = require('../db/trades')
 
 //Gets Gemini trading pairs
 function getTradingPairs() {
@@ -67,14 +66,9 @@ function getAllTrades(tradingPair, timestamp) {
                trading_pair: tradingPair,
             }
          })
-         //console.log(`[GEMINI] REST +${parsedTrades.length} Trades FROM ${tradingPair} - ${parsedTrades[0].time}`)
-         //Insert parsed trades into the database
-         // tradesApi.insert(parsedTrades).catch((err) => {
-         //    if (!err.message.includes('unique')) {
-         //       console.log(err)
-         //       console.log(err.message, '\n^^ GEMINI REST (INSERTION)')
-         //    }
-         // })
+         console.log(
+            `[GEMINI] REST +${parsedTrades.length} Trades FROM ${tradingPair} - ${parsedTrades[0].time}`,
+         )
          insertionBatcher.add(...parsedTrades)
          //If the response consisted of 500 trades
          if (parsedTrades.length === 500) {
@@ -125,6 +119,7 @@ function syncAllTrades(tradingPairs) {
          //Handle messages received
          ws.on('message', (data) => {
             data = JSON.parse(data)
+            console.log(data, 'GEMINI MESSAGE')
             if (data.events.length > 0) {
                //Parse trade data from the message
                const parsedData = data.events.map((tradeData) => {

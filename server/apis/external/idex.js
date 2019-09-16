@@ -45,7 +45,7 @@ function getTradingPairs() {
     */
 }
 
-function getAllTrades(tradingPair, cursor = null) {
+function getAllTrades(tradingPair, cursor = null, lastLongPoll) {
    //Construct query parameters
    let queryBody = {
       market: tradingPair.id,
@@ -61,12 +61,19 @@ function getAllTrades(tradingPair, cursor = null) {
       .then((res) => {
          //The header containers a idex-next-cursor property which can be used to get data
          //Which comes before the data included in this request via the before param
-         if (res.headers['idex-next-cursor']) {
+         if (
+            //IF there's a next cursor and we're not longpolling
+            (res.headers['idex-next-cursor'] && !lastLongPoll) ||
+            //OR IF there's a next cursor, we're longpolling
+            //AND the last trade is after the last time we longpolled
+            (res.headers['idex-next-cursor'] &&
+               res.data[res.data.length - 1].timestamp * 1000 > lastLongPoll)
+         ) {
             getAllTrades(tradingPair, res.headers['idex-next-cursor'])
          }
 
          if (res.data.length > 0) {
-            //Add exchange and trading pair data to each object in array of objects
+            //Add exchange and trading pair data to each trade
             const parsedTrades = res.data.map((tradeData) => {
                return {
                   time: new Date(tradeData.timestamp * 1000).toISOString(),
@@ -78,14 +85,10 @@ function getAllTrades(tradingPair, cursor = null) {
                }
             })
             //Insert it into the database
-            // tradesApi.insert(parsedTrades).catch((err) => {
-            //    if (!err.message.includes('unique')) {
-            //       console.log(err)
-            //       console.log(err.message, '\n^^ IDEX REST INSERTION')
-            //    }
-            // })
             insertionBatcher.add(...parsedTrades)
-            //console.log(`[IDEX] REST API +${parsedTrades.length} Trades FROM ${tradingPair.name} - ${parsedTrades[0].time}`)
+            console.log(
+               `[IDEX] REST API +${parsedTrades.length} Trades FROM ${tradingPair.name} - ${parsedTrades[0].time}`,
+            )
          }
       })
       .catch((err) => {
