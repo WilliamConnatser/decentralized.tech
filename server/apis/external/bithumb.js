@@ -2,7 +2,6 @@ const requestQueue = require('../../utility/requestQueue')
 const axios = requestQueue('bithumb')
 const objectToQuery = require('../../utility/objectToQuery')
 const insertionBatcher = require('../../utility/insertionBatcher')
-const tradesApi = require('../db/trades')
 
 function getTradingPairs() {
    return axios
@@ -48,15 +47,10 @@ function getAllTrades(tradingPair) {
          })
 
          //Insert all trades into the database
-         // tradesApi.insert(parsedData).catch((err) => {
-         //    if (!err.message.includes('unique')) {
-         //       console.log(err)
-         //       console.log(err.message, '\n^^ BITHUMB REST INSERTION')
-         //    }
-         // })
          insertionBatcher.add(...parsedData)
-
-         //console.log(`[BITHUMB] +${data.data.length} Trades FROM ${tradingPair.name}`)
+         console.log(
+            `[BITHUMB] +${data.data.length} Trades FROM ${tradingPair.name}`,
+         )
       })
       .catch((err) => {
          console.log(err)

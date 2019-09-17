@@ -10,32 +10,32 @@ const poloniex = require('../apis/external/poloniex')
 const idex = require('../apis/external/idex')
 
 const exchanges = [
-   /*  
-        COINBASE - REST API + WS
-        Coinbase provides full historical data
-        Check for missing trades once every day
-        Syncing all trades via WS in real-time
-        REST API only allows 4 requests per second
-    */
-   {
-      name: 'coinbase',
-      ws: true,
-      interval: 1000 * 60 * 60 * 24,
-      api: coinbase,
-   },
-   /*  
-        BITSTAMP - REST API + WS
-        Bitstamp does not provide historical data
-        Only the last 24 hours worth of trades are available
-        Check for missing trades three times daily
-        Syncing all trades via WS in real-time
-    */
-   {
-      name: 'bitstamp',
-      ws: true,
-      interval: 1000 * 60 * 60 * 2.5, //TODO: WS not syncing properly?? Longpolling every 2.5 minutes
-      api: bitstamp,
-   },
+   // /*
+   //      COINBASE - REST API + WS
+   //      Coinbase provides full historical data
+   //      Check for missing trades once every day
+   //      Syncing all trades via WS in real-time
+   //      REST API only allows 4 requests per second
+   //  */
+   // {
+   //    name: 'coinbase',
+   //    ws: true,
+   //    interval: 1000 * 60 * 60 * 24,
+   //    api: coinbase,
+   // },
+   // /*
+   //      BITSTAMP - REST API + WS
+   //      Bitstamp does not provide historical data
+   //      Only the last 24 hours worth of trades are available
+   //      Check for missing trades three times daily
+   //      Syncing all trades via WS in real-time
+   //  */
+   // {
+   //    name: 'bitstamp',
+   //    ws: true,
+   //    interval: 1000 * 60 * 60 * 2.5, //TODO: WS not syncing properly?? Longpolling every 2.5 minutes
+   //    api: bitstamp,
+   // },
    /*
         BITHUMB - REST API
         Bithumb does not provide historical data
@@ -53,18 +53,18 @@ const exchanges = [
       interval: 1000 * 45,
       api: bithumb,
    },
-   /*
-        KRAKEN - REST API + WS
-        Kraken provides full historical data
-        REST API longpolling every day
-        WS receiving trades real-time
-    */
-   {
-      name: 'kraken',
-      ws: true,
-      interval: 1000 * 60 * 60 * 24,
-      api: kraken,
-   },
+   // /*
+   //      KRAKEN - REST API + WS
+   //      Kraken provides full historical data
+   //      REST API longpolling every day
+   //      WS receiving trades real-time
+   //  */
+   // {
+   //    name: 'kraken',
+   //    ws: true,
+   //    interval: 1000 * 60 * 60 * 24,
+   //    api: kraken,
+   // },
    /*
         GEMINI - REST API + WS
         Gemini only provides 7 days worth of historical data
@@ -79,74 +79,74 @@ const exchanges = [
       interval: 1000 * 60, //Gemini WS is broken- longpoll every minute
       api: gemini,
    },
-   /*
-        BITFLYER - REST API + WS
-        Only 31 days worth of history is provided
-        REST API longpolling every day
-        WS receiving trades real-time
+   // /*
+   //      BITFLYER - REST API + WS
+   //      Only 31 days worth of history is provided
+   //      REST API longpolling every day
+   //      WS receiving trades real-time
 
-        TODO: Fix Bug...
-        Ocassionally getting a 500 error when using the before query parameter
-        Not sure why, but it looks fine after looking things over.
-        Need to troubleshoot further...
+   //      TODO: Fix Bug...
+   //      Ocassionally getting a 500 error when using the before query parameter
+   //      Not sure why, but it looks fine after looking things over.
+   //      Need to troubleshoot further...
 
-        UPDATE:
-        I have narrowed the error down to the ETH_BTC trading pair
-        I tweeted at Bitflyer about the bug and hope it is resolved soon.
-        For now we can not longpoll the ETH_BTC trading pair
-    */
-   {
-      name: 'bitflyer',
-      ws: true,
-      interval: 1000 * 60 * 2.5, //While WS is broken, longpoll every 2.5 minutes
-      api: bitflyer,
-   },
-   /*
-        ETHFINEX - REST API + WS
-        Full historical data provided
-        REST API longpolling every day
-        WS receiving trades real-time
-        REST API allows 2 requests per second**
-        ** Getting rate limit errors with rate limit settings described in documentation
-        ** Rate limit raised to one request every three seconds which does not get any errors
+   //      UPDATE:
+   //      I have narrowed the error down to the ETH_BTC trading pair
+   //      I tweeted at Bitflyer about the bug and hope it is resolved soon.
+   //      For now we can not longpoll the ETH_BTC trading pair
+   //  */
+   // {
+   //    name: 'bitflyer',
+   //    ws: true,
+   //    interval: 1000 * 60 * 2.5, //While WS is broken, longpoll every 2.5 minutes
+   //    api: bitflyer,
+   // },
+   // /*
+   //      ETHFINEX - REST API + WS
+   //      Full historical data provided
+   //      REST API longpolling every day
+   //      WS receiving trades real-time
+   //      REST API allows 2 requests per second**
+   //      ** Getting rate limit errors with rate limit settings described in documentation
+   //      ** Rate limit raised to one request every three seconds which does not get any errors
 
-        TODO: Fix bug with REST API? Getting an error?
-        TODO: Longpolling interval??
-    */
-   {
-      name: 'ethfinex',
-      ws: true,
-      interval: 1000 * 60 * 60 * 24,
-      api: ethfinex,
-   },
-   /*
-        LIQUID - REST API + PUSHER
-        Provides full historical data
-        Check for missing trades once every day
-        Syncing trades using Pusher in real-time
-        Liquid uses Pusher in place of WS communication
-        REST API has a rate limit of one request per second**
-        ** However, that was giving a rate limit error, and so raised rate limit to 1.25 seconds
-    */
-   {
-      name: 'liquid',
-      ws: true, //technically Pusher
-      interval: 1000 * 60 * 60 * 24,
-      api: liquid,
-   },
-   /*
-        POLONIEX - REST API + WS
-        Provides full historical data
-        Check for missing trades once every day
-        WS receiving trades real-time
-        REST API allows up to 6 calls per second
-    */
-   {
-      name: 'poloniex',
-      ws: true,
-      interval: 1000 * 60 * 60 * 24,
-      api: poloniex,
-   },
+   //      TODO: Fix bug with REST API? Getting an error?
+   //      TODO: Longpolling interval??
+   //  */
+   // {
+   //    name: 'ethfinex',
+   //    ws: true,
+   //    interval: 1000 * 60 * 60 * 24,
+   //    api: ethfinex,
+   // },
+   // /*
+   //      LIQUID - REST API + PUSHER
+   //      Provides full historical data
+   //      Check for missing trades once every day
+   //      Syncing trades using Pusher in real-time
+   //      Liquid uses Pusher in place of WS communication
+   //      REST API has a rate limit of one request per second**
+   //      ** However, that was giving a rate limit error, and so raised rate limit to 1.25 seconds
+   //  */
+   // {
+   //    name: 'liquid',
+   //    ws: true, //technically Pusher
+   //    interval: 1000 * 60 * 60 * 24,
+   //    api: liquid,
+   // },
+   // /*
+   //      POLONIEX - REST API + WS
+   //      Provides full historical data
+   //      Check for missing trades once every day
+   //      WS receiving trades real-time
+   //      REST API allows up to 6 calls per second
+   //  */
+   // {
+   //    name: 'poloniex',
+   //    ws: true,
+   //    interval: 1000 * 60 * 60 * 24,
+   //    api: poloniex,
+   // },
    /*
         IDEX - REST API + WS
         Provides full historical data
