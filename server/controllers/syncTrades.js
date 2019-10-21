@@ -21,7 +21,7 @@ const syncTrades = () => {
             }
             //Initial sync
             getAllTrades()
-            //Longpolling syncing
+            //Longpoll syncing
             setInterval(
                () => getAllTrades(exchange.interval),
                exchange.interval,
