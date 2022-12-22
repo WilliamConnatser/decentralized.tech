@@ -17,7 +17,7 @@
       "dotenv": "^8.0.0",
       "eslint-config-prettier": "^6.2.0",
       "express": "^4.17.1",
-      "jsonwebtoken": "^8.5.1",
+      "jsonwebtoken": "^9.0.0",
       "knex": "^0.19.0",
       "nodemon": "^1.19.1",
       "npx": "^10.2.0",
